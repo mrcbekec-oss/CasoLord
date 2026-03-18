@@ -13,12 +13,73 @@ let kills = 0;
 let lastTime = 0;
 let fakePlayerCount = 740 + Math.floor(Math.random() * 60);
 
-// Multiplayer State
-let peer = null;
-let conn = null;
-let isHost = false;
-let remotePlayers = new Map();
-let roomID = null;
+// Visual & Audio State
+const particles = [];
+let screenShake = 0;
+let audioCtx = null;
+
+function initAudio() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function playSound(freq, type = 'square', duration = 0.1, volume = 0.1, slide = true) {
+    if (!audioCtx) return;
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    if (slide) osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + duration);
+    gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+}
+
+class Particle {
+    constructor(x, y, color, speed, angle, friction = 0.95, gravity = 0) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+        this.friction = friction;
+        this.gravity = gravity;
+        this.life = 1.0;
+        this.decay = Math.random() * 0.05 + 0.02;
+        this.radius = Math.random() * 3 + 1;
+    }
+    update() {
+        this.vx *= this.friction;
+        this.vy *= this.friction;
+        this.vy += this.gravity;
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life -= this.decay;
+        return this.life <= 0;
+    }
+    draw(offsetX, offsetY) {
+        ctx.save();
+        ctx.globalAlpha = this.life;
+        ctx.fillStyle = this.color;
+        ctx.shadowBlur = 5;
+        ctx.shadowColor = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x - offsetX, this.y - offsetY, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+function spawnParticles(x, y, color, count = 10, speed = 5) {
+    for (let i = 0; i < count; i++) {
+        particles.push(new Particle(x, y, color, Math.random() * speed + 2, Math.random() * Math.PI * 2));
+    }
+}
+
 
 // Ban System State
 const MAX_DAILY_LEAVES = 5;
@@ -268,6 +329,9 @@ class Bomb {
 
     explode() {
         explosions.push(new Explosion(this.x, this.y, this.color, this.splashRadius));
+        spawnParticles(this.x, this.y, '#ff9900', 30, 10);
+        screenShake = Math.max(screenShake, 15);
+        playSound(60, 'sawtooth', 0.5, 0.3); // Explosion sound
 
         // Splash damage to player
         if (player.teamId !== this.teamId && !player.isDead && player.shieldTimer <= 0) {
@@ -344,6 +408,10 @@ class Rocket {
 
     explode() {
         explosions.push(new Explosion(this.x, this.y, this.color, this.splashRadius));
+        spawnParticles(this.x, this.y, '#ff4400', 40, 12);
+        screenShake = Math.max(screenShake, 25);
+        playSound(40, 'sawtooth', 0.7, 0.4); // Big explosion
+
         if (player.teamId !== this.teamId && !player.isDead && player.shieldTimer <= 0) {
             const dist = Math.sqrt((this.x - player.x) ** 2 + (this.y - player.y) ** 2);
             if (dist < this.splashRadius) {
@@ -383,6 +451,57 @@ class Rocket {
 
 const rockets = [];
 
+class PowerUp {
+    constructor(x, y, type) {
+        this.x = x;
+        this.y = y;
+        this.type = type; // 'HEALTH', 'SHIELD', 'POINTS'
+        this.radius = 15;
+        this.life = 10000; // 10 seconds
+        this.color = type === 'HEALTH' ? '#ff3e3e' : (type === 'SHIELD' ? '#00e5ff' : '#ffd700');
+    }
+    update(dt) {
+        this.life -= dt;
+        return this.life <= 0;
+    }
+    draw(offsetX, offsetY) {
+        ctx.save();
+        ctx.translate(this.x - offsetX, this.y - offsetY);
+        ctx.rotate(Date.now() / 500);
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = this.color;
+        ctx.fillStyle = this.color;
+
+        // Pulsing scale
+        const s = 1 + Math.sin(Date.now() / 200) * 0.2;
+        ctx.scale(s, s);
+
+        ctx.beginPath();
+        if (this.type === 'HEALTH') {
+            ctx.rect(-8, -2, 16, 4);
+            ctx.rect(-2, -8, 4, 16);
+        } else if (this.type === 'SHIELD') {
+            ctx.arc(0, 0, 10, 0, Math.PI * 2);
+        } else {
+            ctx.moveTo(0, -10);
+            ctx.lineTo(8, 10);
+            ctx.lineTo(-8, 10);
+            ctx.closePath();
+        }
+        ctx.fill();
+        ctx.restore();
+    }
+}
+const powerups = [];
+
+function spawnPowerUp(x, y) {
+    const r = Math.random();
+    let type = 'POINTS';
+    if (r < 0.2) type = 'HEALTH';
+    else if (r < 0.4) type = 'SHIELD';
+    powerups.push(new PowerUp(x, y, type));
+}
+
 class Explosion {
     constructor(x, y, color, radius) {
         this.x = x;
@@ -421,55 +540,6 @@ class Explosion {
 
 const explosions = [];
 
-class OtherPlayer {
-    constructor(id, data) {
-        this.id = id;
-        this.update(data);
-    }
-    update(data) {
-        this.x = data.x;
-        this.y = data.y;
-        this.angle = data.angle;
-        this.health = data.health;
-        this.teamId = data.teamId;
-        this.weaponName = data.weaponName;
-        this.isDead = data.isDead;
-        this.radius = 20;
-    }
-    draw(offsetX, offsetY) {
-        if (this.isDead) return;
-        ctx.save();
-        ctx.translate(this.x - offsetX, this.y - offsetY);
-        ctx.rotate(this.angle);
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = TEAMS[this.teamId].color;
-
-        ctx.beginPath();
-        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
-        ctx.fillStyle = TEAMS[this.teamId].color;
-        ctx.fill();
-
-        // Gun
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(15, -4, 25, 8);
-        ctx.restore();
-
-        // Health bar
-        ctx.fillStyle = 'rgba(255,0,0,0.5)';
-        ctx.fillRect(this.x - offsetX - 20, this.y - offsetY - 35, 40, 5);
-        ctx.fillStyle = '#00ff00';
-        ctx.fillRect(this.x - offsetX - 20, this.y - offsetY - 35, 40 * (this.health / 100), 5);
-
-        // 🛡️ Pulse Shield Effect (Multiplayer)
-        if (this.shieldTimer > 0) {
-            ctx.beginPath();
-            ctx.arc(this.x - offsetX, this.y - offsetY, this.radius + 5 + Math.sin(Date.now() / 100) * 3, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(0, 229, 255, 0.6)';
-            ctx.lineWidth = 3;
-            ctx.stroke();
-        }
-    }
-}
 
 class Bot {
     constructor(teamId) {
@@ -495,6 +565,8 @@ class Bot {
         this.shootTimer = 0;
         this.knifeTimer = 0;
         this.rocketTimer = 0;
+        this.reactionTimer = 0;
+        this.seesEnemy = false;
     }
 
     generateName() {
@@ -554,18 +626,26 @@ class Bot {
         });
 
         if (nearestEnemy) {
+            if (!this.seesEnemy) {
+                this.seesEnemy = true;
+                this.reactionTimer = selectedMap === 'VIP' ? 200 : 500; // VIP bots react faster
+            }
+
             this.state = 'ATTACK';
             this.targetAngle = Math.atan2(nearestEnemy.y - this.y, nearestEnemy.x - this.x);
 
+            if (this.reactionTimer > 0) {
+                this.reactionTimer -= 16;
+                // Still move but don't shoot yet
+            }
+
             // Tactical movement: Maintain distance and move slightly sideways
             const isVipMap = selectedMap === 'VIP';
-            const botSpeed = this.speed; // Restored to full speed for all maps
+            const botSpeed = this.speed;
 
-            // Tactical movement
             const distToEnemy = minDist;
-            const nextX = isVipMap ? this.x + Math.cos(this.targetAngle) * botSpeed * 0.8 : this.x + Math.cos(this.targetAngle) * botSpeed * 0.8;
-            const nextY = isVipMap ? this.y + Math.sin(this.targetAngle) * botSpeed * 0.8 : this.y + Math.sin(this.targetAngle) * botSpeed * 0.8;
 
+            // ... (rest of movement logic)
             if (distToEnemy < 200) {
                 const moveX = -Math.cos(this.targetAngle) * botSpeed * 0.5;
                 const moveY = -Math.sin(this.targetAngle) * botSpeed * 0.5;
@@ -577,6 +657,8 @@ class Bot {
                 if (!checkWallCollision(this.x + moveX, this.y, this.radius)) this.x += moveX;
                 if (!checkWallCollision(this.x, this.y + moveY, this.radius)) this.y += moveY;
             }
+
+            if (this.reactionTimer > 0) return; // Don't shoot during reaction time
 
             // Don't shoot at shielded targets
             if (nearestEnemy.shieldTimer > 0) return;
@@ -634,6 +716,7 @@ class Bot {
             }
         } else {
             this.state = 'PATROL';
+            this.seesEnemy = false;
             if (Math.random() < 0.01) {
                 this.targetAngle += (Math.random() - 0.5) * 2;
             }
@@ -807,6 +890,9 @@ function update(deltaTime) {
                     let damage = b.damage;
                     if (player.hasLordPackage) damage *= 0.5; // Damage resistance
                     player.health -= damage;
+                    spawnParticles(player.x, player.y, '#ff0000', 10); // Blood
+                    screenShake = Math.max(screenShake, 5);
+                    playSound(150, 'sine', 0.1, 0.1); // Hit sound
                     bullets.splice(i, 1);
                     updateHUD();
                     if (player.health <= 0) {
@@ -828,11 +914,15 @@ function update(deltaTime) {
                 const dy = b.y - bot.y;
                 if (Math.sqrt(dx * dx + dy * dy) < bot.radius) {
                     bot.health -= b.damage;
+                    spawnParticles(bot.x, bot.y, bot.color, 8);
+                    playSound(200, 'sine', 0.1, 0.05);
                     bullets.splice(i, 1);
                     if (bot.health <= 0) {
                         bot.health = 0;
                         bot.isDead = true;
                         bot.respawnTimer = 10000;
+                        spawnParticles(bot.x, bot.y, '#fff', 20, 8);
+                        spawnPowerUp(bot.x, bot.y); // Drop powerup
                         checkTeamEliminated(bot.teamId);
 
                         if (b.owner === 'player') {
@@ -855,6 +945,43 @@ function update(deltaTime) {
             bombs.splice(i, 1);
         }
     }
+
+    // Update Particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+        if (particles[i].update()) {
+            particles.splice(i, 1);
+        }
+    }
+
+    // Update Powerups
+    for (let i = powerups.length - 1; i >= 0; i--) {
+        const p = powerups[i];
+        if (p.update(deltaTime)) {
+            powerups.splice(i, 1);
+            continue;
+        }
+        const dx = p.x - player.x;
+        const dy = p.y - player.y;
+        if (Math.sqrt(dx * dx + dy * dy) < player.radius + p.radius) {
+            // Collect
+            if (p.type === 'HEALTH') {
+                player.health = Math.min(player.maxHealth, player.health + 30);
+                playSound(600, 'sine', 0.2, 0.1, false);
+            } else if (p.type === 'SHIELD') {
+                player.shieldTimer = Math.max(player.shieldTimer, 5000); // 5 sec shield
+                playSound(800, 'sine', 0.2, 0.1, false);
+            } else {
+                totalPoints += 5;
+                localStorage.setItem('totalPoints', totalPoints);
+                playSound(1000, 'sine', 0.2, 0.1, false);
+            }
+            updateHUD();
+            powerups.splice(i, 1);
+        }
+    }
+
+    if (screenShake > 0) screenShake *= 0.9;
+    if (screenShake < 0.1) screenShake = 0;
 
     // Update Rockets
     for (let i = rockets.length - 1; i >= 0; i--) {
@@ -930,7 +1057,6 @@ function victory(winningTeamId) {
         <button id="restart-btn" class="premium-btn" style="background: linear-gradient(135deg, #ffd700, #b8860b); color: #000;">
             YENİDEN OYNA
         </button>
-        <button id="lobby-btn" class="multi-btn" style="margin-top:10px; width:100%">LOBİYE DÖN</button>
     `;
     document.getElementById('restart-btn').onclick = () => location.reload();
     document.getElementById('lobby-btn').onclick = () => location.reload();
@@ -939,8 +1065,8 @@ function victory(winningTeamId) {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const offsetX = player.x - canvas.width / 2;
-    const offsetY = player.y - canvas.height / 2;
+    const offsetX = player.x - canvas.width / 2 + (Math.random() - 0.5) * screenShake;
+    const offsetY = player.y - canvas.height / 2 + (Math.random() - 0.5) * screenShake;
 
     const isVipMap = selectedMap === 'VIP';
 
@@ -980,6 +1106,12 @@ function draw() {
 
     // Draw Explosions
     explosions.forEach(e => e.draw(offsetX, offsetY));
+
+    // Draw Particles
+    particles.forEach(p => p.draw(offsetX, offsetY));
+
+    // Draw PowerUps
+    powerups.forEach(p => p.draw(offsetX, offsetY));
 
     // Draw Bots
     entities.forEach(bot => bot.draw(offsetX, offsetY));
@@ -1064,22 +1196,26 @@ function draw() {
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.restore();
     }
+
+    // Lord Vignette Effect
+    if (player.hasLordPackage && gameRunning) {
+        ctx.save();
+        const grad = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, 0, canvas.width / 2, canvas.height / 2, canvas.width);
+        grad.addColorStop(0, 'rgba(255, 215, 0, 0)');
+        grad.addColorStop(1, 'rgba(255, 215, 0, 0.08)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+    }
 }
 
 function updateHUD() {
     if (healthBar) healthBar.style.width = player.health + '%';
     if (killCounter) killCounter.innerText = `Kills: ${kills}`;
 
-    // Fluctuating fake count
-    if (Math.random() < 0.01) {
-        fakePlayerCount += Math.random() > 0.5 ? 1 : -1;
-        if (fakePlayerCount < 700) fakePlayerCount = 700;
-        if (fakePlayerCount > 800) fakePlayerCount = 800;
-    }
-
     const countDisplay = document.getElementById('player-count-display');
     if (countDisplay) {
-        countDisplay.innerText = `Çevrimiçi: ${fakePlayerCount} Oyuncu`;
+        countDisplay.innerText = `Savaş Alanı: Aktif`;
     }
 
     const pointsSpan = document.getElementById('total-points');
@@ -1154,7 +1290,6 @@ function gameOver() {
             <p>Skorun: ${kills} Leş</p>
         </div>
         <button id="restart-btn" class="premium-btn">YENİDEN DENE</button>
-        <button id="lobby-btn" class="multi-btn" style="margin-top:10px; width:100%">LOBİYE DÖN</button>
     `;
     document.getElementById('restart-btn').onclick = () => location.reload();
     document.getElementById('lobby-btn').onclick = () => location.reload();
@@ -1222,6 +1357,7 @@ function startGame() {
 
     menuOverlay.classList.add('hidden');
     gameRunning = true;
+    initAudio();
     player.shieldTimer = 3000; // Initial shield
     isMatchFinished = false;
     lastTime = Date.now();
@@ -1354,7 +1490,6 @@ function useBomb() {
     lastBombTime = now;
     const b = new Bomb(player.x, player.y, player.angle, TEAMS[player.teamId].color, 'player', player.teamId);
     bombs.push(b);
-    broadcast({ type: 'bomb_thrown', x: player.x, y: player.y, angle: player.angle, color: b.color, teamId: b.teamId });
 }
 
 function useRocket() {
@@ -1365,7 +1500,6 @@ function useRocket() {
     lastShootTime = now;
     const r = new Rocket(player.x, player.y, player.angle, TEAMS[player.teamId].color, 'player', player.teamId);
     rockets.push(r);
-    broadcast({ type: 'rocket_fired', x: player.x, y: player.y, angle: player.angle, color: r.color, teamId: r.teamId });
 }
 
 // Knife Attack Logic (Right Click Shortcut)
@@ -1407,7 +1541,7 @@ window.addEventListener('mousedown', (e) => {
                 weapon.bulletSpeed
             );
             bullets.push(b);
-            broadcast({ type: 'bullet_fired', x: player.x, y: player.y, angle: player.angle, color: b.color, teamId: b.teamId, damage: dmg, speed: weapon.bulletSpeed });
+            playSound(400 + Math.random() * 100, 'square', 0.05, 0.05, false); // Shoot sound
             lastShootTime = now;
         }
     } else if (player.currentSlot === 2) {
@@ -1421,139 +1555,3 @@ window.addEventListener('mousedown', (e) => {
 
 requestAnimationFrame(loop);
 updateHUD(); // Initial HUD update to show points and locks
-// Multiplayer Event Listeners
-const hostBtn = document.getElementById('host-btn');
-const joinBtn = document.getElementById('join-btn');
-const joinInput = document.getElementById('join-id');
-const onlineStatus = document.getElementById('online-status');
-const roomDisplay = document.getElementById('room-display');
-const myIdText = document.getElementById('my-id-text');
-
-function initPeer() {
-    if (peer) return;
-    peer = new Peer();
-
-    peer.on('open', (id) => {
-        onlineStatus.innerText = "Çevrimiçi";
-        onlineStatus.classList.add('connected');
-        myIdText.innerText = id;
-    });
-
-    peer.on('connection', (c) => {
-        if (conn) conn.close(); // Only one connection for now
-        conn = c;
-        setupConnection();
-    });
-}
-
-function broadcast(msg) {
-    if (conn && conn.open) {
-        conn.send(msg);
-    }
-}
-
-function setupConnection() {
-    conn.on('open', () => {
-        onlineStatus.innerText = "Bağlandı!";
-        if (isHost) {
-            conn.send({ type: 'init_world', walls: WALLS, teams: TEAMS });
-        } else {
-            // Guest joins a different team
-            player.teamId = 1;
-            player.color = TEAMS[player.teamId].color;
-        }
-    });
-
-    conn.on('data', (data) => {
-        handleServerMessage(data);
-    });
-}
-
-function handleServerMessage(data) {
-    if (data.type === 'player_update') {
-        if (!remotePlayers.has(data.id)) {
-            remotePlayers.set(data.id, new OtherPlayer(data.id, data.state));
-        } else {
-            remotePlayers.get(data.id).update(data.state);
-        }
-    } else if (data.type === 'bullet_fired') {
-        bullets.push(new Bullet(data.x, data.y, data.angle, data.color, 'other', data.teamId, data.damage, data.speed));
-    } else if (data.type === 'bomb_thrown') {
-        bombs.push(new Bomb(data.x, data.y, data.angle, data.color, 'other', data.teamId));
-    } else if (data.type === 'rocket_fired') {
-        rockets.push(new Rocket(data.x, data.y, data.angle, data.color, 'other', data.teamId));
-    } else if (data.type === 'bot_sync') {
-        if (!isHost) {
-            entities.forEach((bot, index) => {
-                if (data.bots[index]) {
-                    bot.x = data.bots[index].x;
-                    bot.y = data.bots[index].y;
-                    bot.angle = data.bots[index].angle;
-                    bot.health = data.bots[index].health;
-                    bot.shieldTimer = data.bots[index].shieldTimer;
-                }
-            });
-        }
-    }
-}
-
-hostBtn.onclick = () => {
-    isHost = true;
-    initPeer();
-    roomDisplay.classList.remove('hidden');
-};
-
-joinBtn.onclick = () => {
-    isHost = false;
-    const targetId = joinInput.value;
-    if (!targetId) return alert("Oda ID girin!");
-    initPeer();
-    conn = peer.connect(targetId);
-    setupConnection();
-};
-
-window.onbeforeunload = recordLeave;
-
-function syncState() {
-    if (conn && conn.open) {
-        conn.send({
-            type: 'player_update',
-            id: peer.id,
-            state: {
-                x: player.x,
-                y: player.y,
-                angle: player.angle,
-                health: player.health,
-                teamId: player.teamId,
-                weaponName: player.weapon ? player.weapon.name : 'STANDART',
-                isDead: player.isDead,
-                shieldTimer: player.shieldTimer
-            }
-        });
-
-        if (isHost) {
-            const botData = entities.map(b => ({ x: b.x, y: b.y, angle: b.angle, health: b.health, shieldTimer: b.shieldTimer }));
-            conn.send({ type: 'bot_sync', bots: botData });
-        }
-    }
-}
-
-// Intercepting update and draw for sync
-const originalUpdate = update;
-update = function (dt) {
-    if (checkBan()) {
-        gameRunning = false;
-        menuOverlay.classList.remove('hidden');
-        return;
-    }
-    originalUpdate(dt);
-    syncState();
-};
-
-const originalDraw = draw;
-draw = function () {
-    originalDraw();
-    const offsetX = player.x - canvas.width / 2;
-    const offsetY = player.y - canvas.height / 2;
-    remotePlayers.forEach(rp => rp.draw(offsetX, offsetY));
-};
