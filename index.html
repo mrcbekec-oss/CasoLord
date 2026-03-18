@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Çağdaş Lord - War Server</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@300;500;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div id="app">
+        <div id="hud-overlay" class="glass">
+            <div class="hud-top">
+                <h1 class="game-title">ÇAĞDAŞ LORD</h1>
+                <div class="stats">
+                    <div class="stat-item" id="kill-counter">Kills: 0</div>
+                    <div class="stat-item" id="health-bar-container">
+                        <div id="health-bar"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="kill-feed"></div>
+            <div id="team-board" class="glass">
+                <h4>Takım Durumu</h4>
+                <div id="team-status-list"></div>
+            </div>
+
+            <div id="inventory-hud" class="glass">
+                <div class="slot active" data-slot="1">
+                    <span class="key">1</span>
+                    <span class="label">SİLAH</span>
+                </div>
+                <div class="slot" data-slot="2">
+                    <span class="key">2</span>
+                    <span class="label">BIÇAK</span>
+                </div>
+                <div class="slot" data-slot="3">
+                    <span class="key">3</span>
+                    <span class="label">BOMBA</span>
+                </div>
+                <div class="slot" data-slot="4">
+                    <span class="key">4</span>
+                    <span class="label">ROKET</span>
+                </div>
+            </div>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+
+        <div id="menu-overlay" class="glass">
+            <h1 class="menu-title">ÇAĞDAŞ LORD</h1>
+            <div id="points-display" class="glass">Puan: <span id="total-points">0</span></div>
+
+            <div class="menu-info">
+                <p id="player-count-display">Çevrimiçi: 742 Oyuncu</p>
+                <p>Favori Takımını Seç ve Savaş!</p>
+            </div>
+
+            <div id="class-selection">
+                <h3>Sınıf Seç</h3>
+                <div class="class-grid">
+                    <button class="class-btn active" data-class="DEFAULT">
+                        <b>STANDART</b><br>
+                        <small>Hız: Normal | Hasar: 25</small>
+                    </button>
+                    <button class="class-btn" data-class="SNIPER" id="btn-sniper">
+                        <b>SNIPER</b><br>
+                        <small>10 Puan | Tek Atış</small>
+                    </button>
+                    <button class="class-btn" data-class="MACHINE_GUN" id="btn-mg">
+                        <b>MAKİNELİ</b><br>
+                        <small>5 Puan | Seri Atış</small>
+                    </button>
+                </div>
+            </div>
+
+            <div class="teammates-section">
+                <h3>Takım Arkadaşlarımız</h3>
+                <div class="teammates-list">
+                    <span class="teammate">Önal</span>
+                    <span class="teammate">Çağdaş</span>
+                    <span class="teammate">Lider</span>
+                </div>
+            </div>
+
+            <div id="start-menu-actions">
+                <button id="start-btn" class="premium-btn">OYNA</button>
+                <div id="map-selection" class="hidden">
+                    <button class="map-btn" data-map="NORMAL">NORMAL HARİTA</button>
+                    <button class="map-btn vip-btn" data-map="VIP">VIP HARİTA</button>
+                </div>
+            </div>
+            <button id="emperor-btn" class="premium-btn">İMPARATOR OLMAK İSTER MİSİN? <span
+                    class="vip-text">VIP</span></button>
+
+            <div id="emperor-modal" class="modal hidden">
+                <div class="modal-content glass">
+                    <span class="close-btn">&times;</span>
+                    <h2>İMPARATOR PAKETLERİ</h2>
+                    <div class="packages-grid">
+                        <div class="package-card">
+                            <h3>Bronz Paket</h3>
+                            <p>Temel Zırh + 500 Altın</p>
+                            <span class="price">13.35 TL</span>
+                            <button class="buy-btn">SATIN AL</button>
+                        </div>
+                        <div class="package-card featured">
+                            <h3>Altın Paket</h3>
+                            <p>Full Set + 2000 Altın + Kanat + <b>Ölümcül Bıçak (Sağ Tık)</b></p>
+                            <span class="price">49.99 TL</span>
+                            <button class="buy-btn" data-package="gold">SATIN AL</button>
+                        </div>
+                        <div class="package-card glass">
+                            <h3>Kral Paketi</h3>
+                            <p>Sınırsız Can + Ejderha + <b>El Bombası (G Tuşu)</b></p>
+                            <span class="price">99.99 TL</span>
+                            <button class="buy-btn" data-package="king">SATIN AL</button>
+                        </div>
+                        <div class="package-card lord glass">
+                            <div class="package-badge">VIP</div>
+                            <h3>LORD PAKETİ</h3>
+                            <p>+ AK-47 Modeli + Roketatar (Slot 4 - %50 Hızlı) + Ölümcül Bıçak & Bomba + %50 Hasar
+                                Direnci + %50 Hasar Artışı</p>
+                            <span class="price">500.00 TL</span>
+                            <button class="buy-btn" data-package="lord">SATIN AL</button>
+                        </div>
+                        <div class="package-card vip glass">
+                            <div class="package-badge" style="background: #bf00ff;">ELITE</div>
+                            <h3>VIP PAKETİ</h3>
+                            <p>+ Özel VIP Harita Erişimi + Gold & Kral Paketlerinde %25 İndirim + Mor Neon Efektler</p>
+                            <span class="price">750.00 TL</span>
+                            <button class="buy-btn" data-package="vip">SATIN AL</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="controls-hint">
+                <p>WASD: Hareket | Mouse: Nişan | Sol Tık: Ateş</p>
+            </div>
+        </div>
+
+        <footer>
+            <p>Savaşçı Bilgisi: <span class="signature">Önal</span></p>
+        </footer>
+    </div>
+    <script src="main.js"></script>
+</body>
+
+</html>
