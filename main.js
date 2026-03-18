@@ -8,9 +8,45 @@ const killFeed = document.getElementById('kill-feed');
 
 // Game State
 let gameRunning = false;
+let isMatchFinished = false; // Flag to prevent ban on completion
 let kills = 0;
 let lastTime = 0;
 let fakePlayerCount = 740 + Math.floor(Math.random() * 60);
+
+// Multiplayer State
+let peer = null;
+let conn = null;
+let isHost = false;
+let remotePlayers = new Map();
+let roomID = null;
+
+// Ban System State
+const MAX_DAILY_LEAVES = 5;
+function getLeaveBatch() {
+    const today = new Date().toDateString();
+    const data = JSON.parse(localStorage.getItem('leaveData') || '{"date":"","count":0}');
+    if (data.date !== today) {
+        return { date: today, count: 0 };
+    }
+    return data;
+}
+
+function checkBan() {
+    const data = getLeaveBatch();
+    if (data.count >= MAX_DAILY_LEAVES) {
+        alert("GÜNLÜK MAÇTAN ÇIKMA SINIRINA ULAŞTIN! BUGÜNLÜK BANLANDIN.");
+        return true;
+    }
+    return false;
+}
+
+function recordLeave() {
+    if (!gameRunning || isMatchFinished) return;
+    const data = getLeaveBatch();
+    data.count++;
+    localStorage.setItem('leaveData', JSON.stringify(data));
+    alert(`Maçtan ayrıldın! Günlük limit: ${data.count}/${MAX_DAILY_LEAVES}`);
+}
 
 // World Settings
 const WORLD_WIDTH = 2000;
@@ -29,6 +65,7 @@ const player = {
     teamId: 0, // User is always Team 0
     isDead: false,
     respawnTimer: 0,
+    shieldTimer: 0, // In milliseconds
     weapon: null
 };
 
@@ -122,7 +159,7 @@ if (isNaN(goldTrial)) {
     localStorage.setItem('goldTrial', goldTrial);
 }
 
-let totalPoints = parseInt(localStorage.getItem('lordPoints')) || 0;
+let totalPoints = parseInt(localStorage.getItem('totalPoints')) || 0;
 let selectedClass = 'DEFAULT';
 player.weapon = WEAPONS[selectedClass];
 player.speed = player.weapon.playerSpeed;
@@ -233,7 +270,7 @@ class Bomb {
         explosions.push(new Explosion(this.x, this.y, this.color, this.splashRadius));
 
         // Splash damage to player
-        if (player.teamId !== this.teamId && !player.isDead) {
+        if (player.teamId !== this.teamId && !player.isDead && player.shieldTimer <= 0) {
             const dist = Math.sqrt((this.x - player.x) ** 2 + (this.y - player.y) ** 2);
             if (dist < this.splashRadius) {
                 player.health -= this.splashDamage * (1 - dist / this.splashRadius);
@@ -243,7 +280,7 @@ class Bomb {
         }
         // Splash damage to bots
         entities.forEach(bot => {
-            if (bot.isDead || bot.teamId === this.teamId) return;
+            if (bot.isDead || bot.teamId === this.teamId || bot.shieldTimer > 0) return;
             const dist = Math.sqrt((this.x - bot.x) ** 2 + (this.y - bot.y) ** 2);
             if (dist < this.splashRadius) {
                 bot.health -= this.splashDamage * (1 - dist / this.splashRadius);
@@ -307,7 +344,7 @@ class Rocket {
 
     explode() {
         explosions.push(new Explosion(this.x, this.y, this.color, this.splashRadius));
-        if (player.teamId !== this.teamId && !player.isDead) {
+        if (player.teamId !== this.teamId && !player.isDead && player.shieldTimer <= 0) {
             const dist = Math.sqrt((this.x - player.x) ** 2 + (this.y - player.y) ** 2);
             if (dist < this.splashRadius) {
                 let damage = this.splashDamage * (1 - dist / this.splashRadius);
@@ -318,7 +355,7 @@ class Rocket {
             }
         }
         entities.forEach(bot => {
-            if (bot.isDead || bot.teamId === this.teamId) return;
+            if (bot.isDead || bot.teamId === this.teamId || bot.shieldTimer > 0) return;
             const dist = Math.sqrt((this.x - bot.x) ** 2 + (this.y - bot.y) ** 2);
             if (dist < this.splashRadius) {
                 bot.health -= this.splashDamage * (1 - dist / this.splashRadius);
@@ -384,6 +421,56 @@ class Explosion {
 
 const explosions = [];
 
+class OtherPlayer {
+    constructor(id, data) {
+        this.id = id;
+        this.update(data);
+    }
+    update(data) {
+        this.x = data.x;
+        this.y = data.y;
+        this.angle = data.angle;
+        this.health = data.health;
+        this.teamId = data.teamId;
+        this.weaponName = data.weaponName;
+        this.isDead = data.isDead;
+        this.radius = 20;
+    }
+    draw(offsetX, offsetY) {
+        if (this.isDead) return;
+        ctx.save();
+        ctx.translate(this.x - offsetX, this.y - offsetY);
+        ctx.rotate(this.angle);
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = TEAMS[this.teamId].color;
+
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = TEAMS[this.teamId].color;
+        ctx.fill();
+
+        // Gun
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(15, -4, 25, 8);
+        ctx.restore();
+
+        // Health bar
+        ctx.fillStyle = 'rgba(255,0,0,0.5)';
+        ctx.fillRect(this.x - offsetX - 20, this.y - offsetY - 35, 40, 5);
+        ctx.fillStyle = '#00ff00';
+        ctx.fillRect(this.x - offsetX - 20, this.y - offsetY - 35, 40 * (this.health / 100), 5);
+
+        // 🛡️ Pulse Shield Effect (Multiplayer)
+        if (this.shieldTimer > 0) {
+            ctx.beginPath();
+            ctx.arc(this.x - offsetX, this.y - offsetY, this.radius + 5 + Math.sin(Date.now() / 100) * 3, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(0, 229, 255, 0.6)';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+    }
+}
+
 class Bot {
     constructor(teamId) {
         this.teamId = teamId;
@@ -401,6 +488,7 @@ class Bot {
         this.health = 100;
         this.isDead = false;
         this.respawnTimer = 0;
+        this.shieldTimer = 3000; // 3 second spawn shield
         this.angle = Math.random() * Math.PI * 2;
         this.targetAngle = this.angle;
         this.state = 'PATROL'; // PATROL, CHASE, ATTACK
@@ -415,7 +503,12 @@ class Bot {
     }
 
     update() {
-        if (this.isDead) return;
+        if (this.shieldTimer > 0) this.shieldTimer -= 16;
+        if (this.respawnTimer > 0) {
+            this.respawnTimer -= 16;
+            if (this.respawnTimer <= 0) this.spawn();
+            return;
+        }
 
         let nearestEnemy = null;
         let minDist = 400;
@@ -429,11 +522,11 @@ class Bot {
             const dy = b.y - this.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
 
-            if (dist < 100) {
+            if (dist < 150) { // Increased dodge range
                 // Perpendicular dodge
                 const angle = b.angle + Math.PI / 2;
-                dodgeX += Math.cos(angle) * 2;
-                dodgeY += Math.sin(angle) * 2;
+                dodgeX += Math.cos(angle) * 4; // Increased dodge speed
+                dodgeY += Math.sin(angle) * 4;
             }
         });
 
@@ -485,6 +578,9 @@ class Bot {
                 if (!checkWallCollision(this.x, this.y + moveY, this.radius)) this.y += moveY;
             }
 
+            // Don't shoot at shielded targets
+            if (nearestEnemy.shieldTimer > 0) return;
+
             // Fire rate adjustment
             let fireThreshold = 70; // Original-like speed for Normal map
             if (isVipMap) fireThreshold = 25; // Elite speed for VIP
@@ -493,9 +589,13 @@ class Bot {
             this.knifeTimer++;
             this.rocketTimer++;
 
+            // Accurate but slightly imperfect shooting
+            const accuracyOffset = isVipMap ? 0.1 : 0.3; // VIP is 3x more accurate
+            const shotAngle = this.targetAngle + (Math.random() - 0.5) * accuracyOffset;
+
             // Decision logic for VIP Bots
             if (isVipMap) {
-                if (distToEnemy < 80 && this.knifeTimer > 40) {
+                if (distToEnemy < 80 && this.knifeTimer > 40 && nearestEnemy.shieldTimer <= 0) {
                     // Knife Attack
                     let dmg = 100;
                     if (nearestEnemy === player) {
@@ -516,20 +616,19 @@ class Bot {
                         }
                     }
                     this.knifeTimer = 0;
-                    // Visual swing effect could be added here
                 } else if (distToEnemy > 400 && this.rocketTimer > 120 && Math.random() < 0.2) {
                     // Rocket Attack
-                    rockets.push(new Rocket(this.x, this.y, this.targetAngle, this.color, 'bot', this.teamId));
+                    rockets.push(new Rocket(this.x, this.y, shotAngle, this.color, 'bot', this.teamId));
                     this.rocketTimer = 0;
                 } else if (this.shootTimer > fireThreshold) {
                     // VIP Bot Shooting (Faster bullets)
-                    bullets.push(new Bullet(this.x, this.y, this.targetAngle, this.color, 'bot', this.teamId, 25, 15));
+                    bullets.push(new Bullet(this.x, this.y, shotAngle, this.color, 'bot', this.teamId, 25, 15));
                     this.shootTimer = 0;
                 }
             } else {
                 // Normal Bot Shooting (Original speed)
                 if (this.shootTimer > fireThreshold) {
-                    bullets.push(new Bullet(this.x, this.y, this.targetAngle, this.color, 'bot', this.teamId, 25, 10));
+                    bullets.push(new Bullet(this.x, this.y, shotAngle, this.color, 'bot', this.teamId, 25, 10));
                     this.shootTimer = 0;
                 }
             }
@@ -587,6 +686,15 @@ class Bot {
         ctx.lineWidth = 2;
         ctx.stroke();
 
+        // 🛡️ Pulse Shield Effect
+        if (this.shieldTimer > 0) {
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius + 5 + Math.sin(Date.now() / 100) * 3, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(0, 229, 255, 0.6)';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+
         // Gun
         ctx.fillStyle = '#333';
         ctx.fillRect(10, -5, 20, 10);
@@ -626,6 +734,7 @@ function update(deltaTime) {
         if (player.swingProgress >= 1) player.swingProgress = 0;
     }
 
+    if (player.shieldTimer > 0) player.shieldTimer -= deltaTime;
     // Respawn Tick
     if (player.isDead) {
         player.respawnTimer -= deltaTime;
@@ -634,6 +743,7 @@ function update(deltaTime) {
             player.health = player.maxHealth;
             player.x = Math.random() * WORLD_WIDTH;
             player.y = Math.random() * WORLD_HEIGHT;
+            player.shieldTimer = 3000; // Shield on respawn
         }
     }
 
@@ -644,7 +754,10 @@ function update(deltaTime) {
                 bot.isDead = false;
                 bot.health = 100;
                 bot.spawn();
+                bot.shieldTimer = 3000; // Shield on respawn
             }
+        } else {
+            if (bot.shieldTimer > 0) bot.shieldTimer -= deltaTime;
         }
     });
 
@@ -690,7 +803,7 @@ function update(deltaTime) {
             if (b.teamId !== player.teamId) {
                 const dx = b.x - player.x;
                 const dy = b.y - player.y;
-                if (Math.sqrt(dx * dx + dy * dy) < player.radius) {
+                if (Math.sqrt(dx * dx + dy * dy) < player.radius && player.shieldTimer <= 0) {
                     let damage = b.damage;
                     if (player.hasLordPackage) damage *= 0.5; // Damage resistance
                     player.health -= damage;
@@ -709,7 +822,7 @@ function update(deltaTime) {
             // Check bot collisions if not on same team
             for (let j = entities.length - 1; j >= 0; j--) {
                 const bot = entities[j];
-                if (bot.isDead || b.teamId === bot.teamId) continue;
+                if (bot.isDead || b.teamId === bot.teamId || bot.shieldTimer > 0) continue;
 
                 const dx = b.x - bot.x;
                 const dy = b.y - bot.y;
@@ -791,12 +904,13 @@ function checkTeamEliminated(teamId) {
 
 function victory(winningTeamId) {
     gameRunning = false;
+    isMatchFinished = true;
     const winningTeam = TEAMS[winningTeamId];
 
     // Award points if player team wins
     if (winningTeamId === player.teamId) {
         totalPoints += 3;
-        localStorage.setItem('lordPoints', totalPoints);
+        localStorage.setItem('totalPoints', totalPoints);
     }
 
     menuOverlay.classList.remove('hidden');
@@ -816,8 +930,10 @@ function victory(winningTeamId) {
         <button id="restart-btn" class="premium-btn" style="background: linear-gradient(135deg, #ffd700, #b8860b); color: #000;">
             YENİDEN OYNA
         </button>
+        <button id="lobby-btn" class="multi-btn" style="margin-top:10px; width:100%">LOBİYE DÖN</button>
     `;
     document.getElementById('restart-btn').onclick = () => location.reload();
+    document.getElementById('lobby-btn').onclick = () => location.reload();
 }
 
 function draw() {
@@ -876,10 +992,17 @@ function draw() {
 
         ctx.shadowBlur = 15;
         ctx.shadowColor = TEAMS[player.teamId].color;
-        ctx.beginPath();
-        ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
         ctx.fillStyle = TEAMS[player.teamId].color;
         ctx.fill();
+
+        // 🛡️ Pulse Shield Effect
+        if (player.shieldTimer > 0) {
+            ctx.beginPath();
+            ctx.arc(0, 0, player.radius + 5 + Math.sin(Date.now() / 100) * 3, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(0, 229, 255, 0.6)';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
 
         // Player gun
         ctx.fillStyle = '#fff';
@@ -1023,6 +1146,7 @@ function addKillFeed(msg) {
 
 function gameOver() {
     gameRunning = false;
+    isMatchFinished = true;
     menuOverlay.classList.remove('hidden');
     menuOverlay.innerHTML = `
         <h1 class="menu-title">YENİLDİN!</h1>
@@ -1030,8 +1154,10 @@ function gameOver() {
             <p>Skorun: ${kills} Leş</p>
         </div>
         <button id="restart-btn" class="premium-btn">YENİDEN DENE</button>
+        <button id="lobby-btn" class="multi-btn" style="margin-top:10px; width:100%">LOBİYE DÖN</button>
     `;
     document.getElementById('restart-btn').onclick = () => location.reload();
+    document.getElementById('lobby-btn').onclick = () => location.reload();
 }
 
 function loop(time) {
@@ -1096,6 +1222,8 @@ function startGame() {
 
     menuOverlay.classList.add('hidden');
     gameRunning = true;
+    player.shieldTimer = 3000; // Initial shield
+    isMatchFinished = false;
     lastTime = Date.now();
 
     // Decrement Gold Trial if used
@@ -1196,7 +1324,7 @@ function useKnife() {
     player.swingProgress = 0.01;
 
     entities.forEach(bot => {
-        if (bot.isDead) return;
+        if (bot.isDead || bot.shieldTimer > 0) return;
         const dx = bot.x - player.x;
         const dy = bot.y - player.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -1224,7 +1352,9 @@ function useBomb() {
     const now = Date.now();
     if (now - lastBombTime < 3000) return;
     lastBombTime = now;
-    bombs.push(new Bomb(player.x, player.y, player.angle, TEAMS[player.teamId].color, 'player', player.teamId));
+    const b = new Bomb(player.x, player.y, player.angle, TEAMS[player.teamId].color, 'player', player.teamId);
+    bombs.push(b);
+    broadcast({ type: 'bomb_thrown', x: player.x, y: player.y, angle: player.angle, color: b.color, teamId: b.teamId });
 }
 
 function useRocket() {
@@ -1233,7 +1363,9 @@ function useRocket() {
     const fireRate = 1200; // Fast rockets
     if (now - lastShootTime < fireRate) return;
     lastShootTime = now;
-    rockets.push(new Rocket(player.x, player.y, player.angle, TEAMS[player.teamId].color, 'player', player.teamId));
+    const r = new Rocket(player.x, player.y, player.angle, TEAMS[player.teamId].color, 'player', player.teamId);
+    rockets.push(r);
+    broadcast({ type: 'rocket_fired', x: player.x, y: player.y, angle: player.angle, color: r.color, teamId: r.teamId });
 }
 
 // Knife Attack Logic (Right Click Shortcut)
@@ -1264,7 +1396,7 @@ window.addEventListener('mousedown', (e) => {
             let dmg = weapon.damage;
             if (player.hasLordPackage) dmg *= 1.5; // Damage boost
 
-            bullets.push(new Bullet(
+            const b = new Bullet(
                 player.x,
                 player.y,
                 player.angle,
@@ -1273,7 +1405,9 @@ window.addEventListener('mousedown', (e) => {
                 player.teamId,
                 dmg,
                 weapon.bulletSpeed
-            ));
+            );
+            bullets.push(b);
+            broadcast({ type: 'bullet_fired', x: player.x, y: player.y, angle: player.angle, color: b.color, teamId: b.teamId, damage: dmg, speed: weapon.bulletSpeed });
             lastShootTime = now;
         }
     } else if (player.currentSlot === 2) {
@@ -1287,3 +1421,139 @@ window.addEventListener('mousedown', (e) => {
 
 requestAnimationFrame(loop);
 updateHUD(); // Initial HUD update to show points and locks
+// Multiplayer Event Listeners
+const hostBtn = document.getElementById('host-btn');
+const joinBtn = document.getElementById('join-btn');
+const joinInput = document.getElementById('join-id');
+const onlineStatus = document.getElementById('online-status');
+const roomDisplay = document.getElementById('room-display');
+const myIdText = document.getElementById('my-id-text');
+
+function initPeer() {
+    if (peer) return;
+    peer = new Peer();
+
+    peer.on('open', (id) => {
+        onlineStatus.innerText = "Çevrimiçi";
+        onlineStatus.classList.add('connected');
+        myIdText.innerText = id;
+    });
+
+    peer.on('connection', (c) => {
+        if (conn) conn.close(); // Only one connection for now
+        conn = c;
+        setupConnection();
+    });
+}
+
+function broadcast(msg) {
+    if (conn && conn.open) {
+        conn.send(msg);
+    }
+}
+
+function setupConnection() {
+    conn.on('open', () => {
+        onlineStatus.innerText = "Bağlandı!";
+        if (isHost) {
+            conn.send({ type: 'init_world', walls: WALLS, teams: TEAMS });
+        } else {
+            // Guest joins a different team
+            player.teamId = 1;
+            player.color = TEAMS[player.teamId].color;
+        }
+    });
+
+    conn.on('data', (data) => {
+        handleServerMessage(data);
+    });
+}
+
+function handleServerMessage(data) {
+    if (data.type === 'player_update') {
+        if (!remotePlayers.has(data.id)) {
+            remotePlayers.set(data.id, new OtherPlayer(data.id, data.state));
+        } else {
+            remotePlayers.get(data.id).update(data.state);
+        }
+    } else if (data.type === 'bullet_fired') {
+        bullets.push(new Bullet(data.x, data.y, data.angle, data.color, 'other', data.teamId, data.damage, data.speed));
+    } else if (data.type === 'bomb_thrown') {
+        bombs.push(new Bomb(data.x, data.y, data.angle, data.color, 'other', data.teamId));
+    } else if (data.type === 'rocket_fired') {
+        rockets.push(new Rocket(data.x, data.y, data.angle, data.color, 'other', data.teamId));
+    } else if (data.type === 'bot_sync') {
+        if (!isHost) {
+            entities.forEach((bot, index) => {
+                if (data.bots[index]) {
+                    bot.x = data.bots[index].x;
+                    bot.y = data.bots[index].y;
+                    bot.angle = data.bots[index].angle;
+                    bot.health = data.bots[index].health;
+                    bot.shieldTimer = data.bots[index].shieldTimer;
+                }
+            });
+        }
+    }
+}
+
+hostBtn.onclick = () => {
+    isHost = true;
+    initPeer();
+    roomDisplay.classList.remove('hidden');
+};
+
+joinBtn.onclick = () => {
+    isHost = false;
+    const targetId = joinInput.value;
+    if (!targetId) return alert("Oda ID girin!");
+    initPeer();
+    conn = peer.connect(targetId);
+    setupConnection();
+};
+
+window.onbeforeunload = recordLeave;
+
+function syncState() {
+    if (conn && conn.open) {
+        conn.send({
+            type: 'player_update',
+            id: peer.id,
+            state: {
+                x: player.x,
+                y: player.y,
+                angle: player.angle,
+                health: player.health,
+                teamId: player.teamId,
+                weaponName: player.weapon ? player.weapon.name : 'STANDART',
+                isDead: player.isDead,
+                shieldTimer: player.shieldTimer
+            }
+        });
+
+        if (isHost) {
+            const botData = entities.map(b => ({ x: b.x, y: b.y, angle: b.angle, health: b.health, shieldTimer: b.shieldTimer }));
+            conn.send({ type: 'bot_sync', bots: botData });
+        }
+    }
+}
+
+// Intercepting update and draw for sync
+const originalUpdate = update;
+update = function (dt) {
+    if (checkBan()) {
+        gameRunning = false;
+        menuOverlay.classList.remove('hidden');
+        return;
+    }
+    originalUpdate(dt);
+    syncState();
+};
+
+const originalDraw = draw;
+draw = function () {
+    originalDraw();
+    const offsetX = player.x - canvas.width / 2;
+    const offsetY = player.y - canvas.height / 2;
+    remotePlayers.forEach(rp => rp.draw(offsetX, offsetY));
+};

@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Çağdaş Lord - War Server</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -94,6 +95,21 @@
                 <div id="map-selection" class="hidden">
                     <button class="map-btn" data-map="NORMAL">NORMAL HARİTA</button>
                     <button class="map-btn vip-btn" data-map="VIP">VIP HARİTA</button>
+                </div>
+            </div>
+
+            <!-- Multiplayer Section -->
+            <div id="multiplayer-menu" class="multiplayer-menu glass">
+                <div class="online-status" id="online-status">Çevrimdışı</div>
+                <div class="multi-actions">
+                    <button id="host-btn" class="multi-btn">ODA KUR</button>
+                    <div class="join-box">
+                        <input type="text" id="join-id" placeholder="Oda ID Gir...">
+                        <button id="join-btn" class="multi-btn">KATIL</button>
+                    </div>
+                </div>
+                <div id="room-display" class="room-display hidden">
+                    Oda Kodun: <span id="my-id-text">...</span>
                 </div>
             </div>
             <button id="emperor-btn" class="premium-btn">İMPARATOR OLMAK İSTER MİSİN? <span
