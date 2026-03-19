@@ -1341,14 +1341,16 @@ const emperorBtn = document.getElementById('emperor-btn');
 const emperorModal = document.getElementById('emperor-modal');
 const closeBtn = document.querySelector('.close-btn');
 
-if (emperorBtn) {
+if (emperorBtn && emperorModal) {
     emperorBtn.onclick = () => {
         emperorModal.classList.remove('hidden');
     };
 }
 
-if (closeBtn) {
-    closeBtn.onclick = () => {
+// Fixed close button selector and added better click handling
+const modalCloseBtn = emperorModal ? emperorModal.querySelector('.close-btn') : null;
+if (modalCloseBtn) {
+    modalCloseBtn.onclick = () => {
         emperorModal.classList.add('hidden');
     };
 }
