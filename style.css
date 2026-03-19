@@ -79,8 +79,9 @@ canvas {
     position: absolute;
     top: 20px;
     right: 25px;
-    font-size: 2.5rem;
+    font-size: 3.5rem;
     cursor: pointer;
+    line-height: 1;
     color: #fff;
     background: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.2);
@@ -246,6 +247,33 @@ canvas {
     display: flex;
     justify-content: space-between;
     pointer-events: none;
+}
+
+#team-status {
+    position: fixed;
+    top: 100px;
+    left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.team-info {
+    font-size: 1rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.team-count {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
 }
 
 .game-title {

@@ -226,6 +226,20 @@ function checkWallCollision(x, y, radius) {
     }
     return false;
 }
+
+function getRandomSafePosition(radius) {
+    let x, y;
+    let attempts = 0;
+    while (attempts < 200) {
+        x = radius + Math.random() * (WORLD_WIDTH - radius * 2);
+        y = radius + Math.random() * (WORLD_HEIGHT - radius * 2);
+        if (!checkWallCollision(x, y, radius + 10)) { // Extra padding for safety
+            return { x, y };
+        }
+        attempts++;
+    }
+    return { x: Math.random() * WORLD_WIDTH, y: Math.random() * WORLD_HEIGHT };
+}
 let selectedClass = 'DEFAULT';
 player.weapon = WEAPONS[selectedClass];
 player.speed = player.weapon.playerSpeed;
@@ -556,8 +570,9 @@ class Bot {
     }
 
     spawn() {
-        this.x = Math.random() * WORLD_WIDTH;
-        this.y = Math.random() * WORLD_HEIGHT;
+        const pos = getRandomSafePosition(20);
+        this.x = pos.x;
+        this.y = pos.y;
         this.radius = 20;
         this.speed = 2 + Math.random() * 2;
         this.health = 100;
@@ -829,8 +844,9 @@ function update(deltaTime) {
         if (player.respawnTimer <= 0 && !TEAMS[player.teamId].isEliminated) {
             player.isDead = false;
             player.health = player.maxHealth;
-            player.x = Math.random() * WORLD_WIDTH;
-            player.y = Math.random() * WORLD_HEIGHT;
+            const pos = getRandomSafePosition(player.radius);
+            player.x = pos.x;
+            player.y = pos.y;
             player.shieldTimer = 3000; // Shield on respawn
         }
     }
@@ -1241,6 +1257,25 @@ function updateHUD() {
 
         slot.classList.toggle('locked', locked);
     });
+
+    // Update Team Status
+    const teamStatusDiv = document.getElementById('team-status');
+    if (teamStatusDiv) {
+        teamStatusDiv.innerHTML = TEAMS.map(team => {
+            if (team.isEliminated) return '';
+            const aliveCount = (player.teamId === team.id && !player.isDead ? 1 : 0) +
+                entities.filter(bot => bot.teamId === team.id && !bot.isDead).length;
+
+            if (aliveCount === 0) return '';
+
+            return `
+                <div class="team-info" style="color: ${team.color}">
+                    <span>${team.name.toUpperCase()}</span>
+                    <span class="team-count">${aliveCount} KİŞİ</span>
+                </div>
+            `;
+        }).join('');
+    }
 }
 
 function addKillFeed(msg) {
