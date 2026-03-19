@@ -19,6 +19,9 @@ if (!playerName) {
 
 // Ban System (5 Strikes = 30 Minutes Ban)
 function checkBan() {
+    const lowerName = playerName.toLowerCase();
+    if (lowerName === 'miro' || lowerName === 'çaşo') return false;
+
     const banUntil = localStorage.getItem('banUntil');
     if (banUntil) {
         const remaining = parseInt(banUntil) - Date.now();
@@ -1208,7 +1211,33 @@ function draw() {
         ctx.restore();
 
         ctx.shadowBlur = 0; // Clear player glow
-        ctx.fillText(TEAMS[player.teamId].name.toUpperCase() + " TAKIMI", canvas.width / 2, canvas.height / 2 - 40);
+
+        const lowerName = playerName.toLowerCase();
+        let roleText = "";
+        let roleColor = "#fff";
+        if (lowerName === "çaşo") {
+            roleText = "👑 KURUCU";
+            roleColor = "#ff3e3e";
+        } else if (lowerName === "miro") {
+            roleText = "🛡️ MODERATÖR";
+            roleColor = "#ffd700";
+        }
+
+        if (roleText) {
+            ctx.fillStyle = roleColor;
+            ctx.font = 'bold 13px Rajdhani';
+            ctx.textAlign = 'center';
+            ctx.fillText(roleText, canvas.width / 2, canvas.height / 2 - 55);
+        }
+
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 14px Rajdhani';
+        ctx.textAlign = 'center';
+        ctx.fillText(playerName, canvas.width / 2, canvas.height / 2 - 40);
+
+        ctx.fillStyle = TEAMS[player.teamId].color;
+        ctx.font = '12px Rajdhani';
+        ctx.fillText(TEAMS[player.teamId].name.toUpperCase() + " TAKIMI", canvas.width / 2, canvas.height / 2 - 25);
     } else {
         // Draw Respawn Timer
         ctx.fillStyle = '#fff';
