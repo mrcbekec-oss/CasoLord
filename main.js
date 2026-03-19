@@ -524,8 +524,6 @@ class PowerUp {
         ctx.save();
         ctx.translate(this.x - offsetX, this.y - offsetY);
         ctx.rotate(Date.now() / 500);
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = this.color;
         ctx.fillStyle = this.color;
 
         // Pulsing scale
@@ -595,6 +593,7 @@ class Explosion {
 }
 
 const explosions = [];
+
 
 
 class Bot {
@@ -1160,14 +1159,7 @@ function draw() {
         if (wall.x + wall.w < offsetX - 20 || wall.x > offsetX + canvas.width + 20 ||
             wall.y + wall.h < offsetY - 20 || wall.y > offsetY + canvas.height + 20) continue;
 
-        // Drop shadow for depth
-        ctx.save();
-        ctx.shadowColor = 'rgba(0,0,0,0.5)';
-        ctx.shadowBlur = 10;
-        ctx.shadowOffsetX = 5;
-        ctx.shadowOffsetY = 5;
         ctx.fillRect(wall.x - offsetX, wall.y - offsetY, wall.w, wall.h);
-        ctx.restore();
         ctx.rect(wall.x - offsetX, wall.y - offsetY, wall.w, wall.h);
     }
     ctx.stroke();
