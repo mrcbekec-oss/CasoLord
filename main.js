@@ -11,17 +11,9 @@ let gameRunning = false;
 let kills = 0;
 let lastTime = 0;
 
-// Force name update for existing players
-if (!localStorage.getItem('forceNameResetV1')) {
-    localStorage.removeItem('playerName');
-    localStorage.setItem('forceNameResetV1', 'true');
-}
-
-let playerName = localStorage.getItem('playerName');
-if (!playerName) {
-    playerName = prompt("Lütfen Adınızı Giriniz (Örn: miro, çaşo):") || "Misafir";
-    localStorage.setItem('playerName', playerName);
-}
+// Player name is set via the HTML name screen (no prompt)
+let playerName = '';
+let deviceMode = 'PC'; // 'PC' or 'MOBILE'
 
 // Ban System (5 Strikes = 30 Minutes Ban)
 function checkBan() {
@@ -384,7 +376,9 @@ class Bomb {
     }
 
     explode() {
-        explosions.push(new Explosion(this.x, this.y, this.color, this.splashRadius));
+        if (explosions.length < 20) {
+            explosions.push(new Explosion(this.x, this.y, this.color, this.splashRadius));
+        }
         spawnParticles(this.x, this.y, '#ff9900', 30, 10);
         screenShake = Math.max(screenShake, 15);
         playSound(60, 'sawtooth', 0.5, 0.3); // Explosion sound
@@ -1402,13 +1396,35 @@ function gameOver() {
     document.getElementById('restart-btn').onclick = () => location.reload();
 }
 
+let debugError = "";
+
 function loop(time) {
     if (lastTime === 0) lastTime = time;
-    const deltaTime = time - lastTime;
+    // Cap deltaTime to 100ms to prevent freeze/spiral when tab is backgrounded
+    const deltaTime = Math.min(time - lastTime, 100);
     lastTime = time;
 
-    update(deltaTime);
-    draw();
+    try {
+        update(deltaTime);
+        draw();
+    } catch (e) {
+        debugError = e.stack || e.message;
+        console.error(e);
+    }
+
+    if (debugError) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'red';
+        ctx.font = '16px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText("CRASH LOG:", 20, 40);
+        ctx.fillStyle = 'white';
+        const lines = debugError.split('\n');
+        for (let i = 0; i < lines.length; i++) {
+            ctx.fillText(lines[i], 20, 70 + i * 25);
+        }
+    }
 
     requestAnimationFrame(loop);
 }
@@ -1461,6 +1477,29 @@ function startGame() {
     }
 
     menuOverlay.classList.add('hidden');
+
+    // Show HUD
+    const hudOverlay = document.getElementById('hud-overlay');
+    if (hudOverlay) hudOverlay.classList.remove('hidden');
+
+    // Show mobile controls only on mobile
+    const mobileCtrls = document.getElementById('mobile-controls');
+    if (mobileCtrls) {
+        if (deviceMode === 'MOBILE') {
+            mobileCtrls.classList.remove('hidden');
+        } else {
+            mobileCtrls.classList.add('hidden');
+        }
+    }
+
+    // Update controls hint text
+    const hint = document.getElementById('controls-hint');
+    if (hint) {
+        hint.innerHTML = deviceMode === 'MOBILE'
+            ? '<p>Sol Joystick: Hareket | Sağ Butonlar: Ateş/Bıçak/Bomba/Roket</p>'
+            : '<p>WASD: Hareket | Mouse: Nişan | Sol Tık: Ateş</p>';
+    }
+
     gameRunning = true;
     initAudio();
     player.shieldTimer = 3000; // Initial shield
@@ -1652,7 +1691,7 @@ window.addEventListener('mousedown', (e) => {
                 dmg,
                 weapon.bulletSpeed
             );
-            bullets.push(b);
+            if (bullets.length < 100) bullets.push(b);
             playSound(400 + Math.random() * 100, 'square', 0.05, 0.05, false); // Shoot sound
             lastShootTime = now;
         }
@@ -1670,5 +1709,189 @@ window.onbeforeunload = () => {
     recordLeave();
 };
 
-requestAnimationFrame(loop);
-updateHUD(); // Initial HUD update to show points and locks
+// NOTE: requestAnimationFrame(loop) is called inside startGame(), not here.
+// The game loop must NOT start before the player clicks play.
+updateHUD();
+
+// ===================== NAME SCREEN & DEVICE SELECTION =====================
+function selectDevice(mode) {
+    deviceMode = mode;
+    document.getElementById('btn-pc').classList.toggle('active', mode === 'PC');
+    document.getElementById('btn-mobile').classList.toggle('active', mode === 'MOBILE');
+}
+
+function confirmName() {
+    const inputEl = document.getElementById('name-input');
+    let name = (inputEl ? inputEl.value.trim() : '') || 'Misafir';
+    playerName = name;
+    localStorage.setItem('playerName', playerName);
+
+    // Ban check
+    if (checkBan()) return;
+
+    // Hide name screen, show menu
+    document.getElementById('name-screen').classList.add('hidden');
+    document.getElementById('menu-overlay').classList.remove('hidden');
+    updateHUD();
+}
+
+// Pre-fill stored name if available
+(function initNameScreen() {
+    const stored = localStorage.getItem('playerName');
+    const inputEl = document.getElementById('name-input');
+    if (stored && inputEl) inputEl.value = stored;
+
+    // Allow Enter key to confirm
+    if (inputEl) {
+        inputEl.addEventListener('keydown', e => {
+            if (e.key === 'Enter') confirmName();
+        });
+    }
+})();
+
+// ===================== MOBILE JOYSTICK =====================
+(function initMobileJoystick() {
+    const joystickBase = document.getElementById('joystick-base');
+    const joystickKnob = document.getElementById('joystick-knob');
+    if (!joystickBase || !joystickKnob) return;
+
+    const MAX_DIST = 48;
+    let joystickActive = false;
+    let joyTouchId = null;
+    let baseX = 0, baseY = 0;
+
+    function getBaseCenter() {
+        const r = joystickBase.getBoundingClientRect();
+        baseX = r.left + r.width / 2;
+        baseY = r.top + r.height / 2;
+    }
+
+    joystickBase.addEventListener('touchstart', e => {
+        e.preventDefault();
+        joystickActive = true;
+        joyTouchId = e.changedTouches[0].identifier;
+        getBaseCenter();
+        updateKnob(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+    }, { passive: false });
+
+    window.addEventListener('touchmove', e => {
+        if (!joystickActive) return;
+        e.preventDefault();
+        for (const t of e.changedTouches) {
+            if (t.identifier === joyTouchId) {
+                updateKnob(t.clientX, t.clientY);
+                break;
+            }
+        }
+    }, { passive: false });
+
+    window.addEventListener('touchend', e => {
+        for (const t of e.changedTouches) {
+            if (t.identifier === joyTouchId) {
+                joystickActive = false;
+                joyTouchId = null;
+                joystickKnob.style.transform = 'translate(-50%, -50%)';
+                // Clear keys
+                keys['w'] = false; keys['s'] = false;
+                keys['a'] = false; keys['d'] = false;
+                break;
+            }
+        }
+    }, { passive: false });
+
+    function updateKnob(cx, cy) {
+        let dx = cx - baseX;
+        let dy = cy - baseY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > MAX_DIST) {
+            dx = (dx / dist) * MAX_DIST;
+            dy = (dy / dist) * MAX_DIST;
+        }
+        joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+
+        const deadzone = 10;
+        keys['w'] = dy < -deadzone;
+        keys['s'] = dy > deadzone;
+        keys['a'] = dx < -deadzone;
+        keys['d'] = dx > deadzone;
+    }
+
+    // Mobile look (drag on canvas area outside joystick)
+    let lookTouchId = null;
+    let lastLookX = 0, lastLookY = 0;
+
+    canvas.addEventListener('touchstart', e => {
+        e.preventDefault();
+        const t = e.changedTouches[0];
+        lookTouchId = t.identifier;
+        lastLookX = t.clientX;
+        lastLookY = t.clientY;
+        // Also trigger fire on tap
+        if (gameRunning && !player.isDead && player.currentSlot === 1) {
+            const now = Date.now();
+            if (now - lastShootTime >= player.weapon.fireRate) {
+                // Shoot toward current angle
+                let weapon = player.weapon;
+                if (player.hasLordPackage && weapon !== WEAPONS.GOD_GUN) weapon = WEAPONS.AK47;
+                let dmg = weapon.damage;
+                if (player.hasLordPackage) dmg *= 1.5;
+                if (bullets.length < 100) {
+                    bullets.push(new Bullet(player.x, player.y, player.angle,
+                        TEAMS[player.teamId].color, 'player', player.teamId, dmg, weapon.bulletSpeed));
+                }
+                playSound(400 + Math.random() * 100, 'square', 0.05, 0.05, false);
+                lastShootTime = now;
+            }
+        }
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', e => {
+        e.preventDefault();
+        for (const t of e.changedTouches) {
+            if (t.identifier === lookTouchId) {
+                const dx = t.clientX - canvas.width / 2;
+                const dy = t.clientY - canvas.height / 2;
+                player.angle = Math.atan2(dy, dx);
+                lastLookX = t.clientX;
+                lastLookY = t.clientY;
+                break;
+            }
+        }
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', e => {
+        for (const t of e.changedTouches) {
+            if (t.identifier === lookTouchId) lookTouchId = null;
+        }
+    }, { passive: false });
+
+    // Action buttons
+    const fireBtnEl = document.getElementById('mob-fire-btn');
+    const knifeBtnEl = document.getElementById('mob-knife-btn');
+    const bombBtnEl = document.getElementById('mob-bomb-btn');
+    const rocketBtnEl = document.getElementById('mob-rocket-btn');
+
+    if (fireBtnEl) {
+        fireBtnEl.addEventListener('touchstart', e => {
+            e.stopPropagation();
+            if (!gameRunning || player.isDead) return;
+            let weapon = player.weapon;
+            if (player.hasLordPackage && weapon !== WEAPONS.GOD_GUN) weapon = WEAPONS.AK47;
+            const now = Date.now();
+            if (now - lastShootTime >= weapon.fireRate) {
+                let dmg = weapon.damage;
+                if (player.hasLordPackage) dmg *= 1.5;
+                if (bullets.length < 100) {
+                    bullets.push(new Bullet(player.x, player.y, player.angle,
+                        TEAMS[player.teamId].color, 'player', player.teamId, dmg, weapon.bulletSpeed));
+                }
+                playSound(400 + Math.random() * 100, 'square', 0.05, 0.05, false);
+                lastShootTime = now;
+            }
+        }, { passive: false });
+    }
+
+    if (knifeBtnEl) knifeBtnEl.addEventListener('touchstart', e => { e.stopPropagation(); useKnife(); }, { passive: false });
+    if (bombBtnEl) bombBtnEl.addEventListener('touchstart', e => { e.stopPropagation(); useBomb(); }, { passive: false });
+    if (rocketBtnEl) rocketBtnEl.addEventListener('touchstart', e => { e.stopPropagation(); useRocket(); }, { passive: false });
+})();

@@ -12,6 +12,8 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
 }
 
 body {
@@ -20,6 +22,7 @@ body {
     font-family: var(--font-main);
     overflow: hidden;
     height: 100vh;
+    user-select: none;
 }
 
 #app {
@@ -34,6 +37,9 @@ canvas {
     display: block;
     width: 100%;
     height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
 }
 
 .glass {
@@ -47,7 +53,95 @@ canvas {
     display: none !important;
 }
 
-/* Modal UI */
+/* ===================== NAME SCREEN ===================== */
+.full-screen-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 500;
+    gap: 18px;
+    padding: 30px 20px;
+}
+
+.name-subtitle {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 1rem;
+    letter-spacing: 1px;
+    margin-top: -10px;
+}
+
+.name-input-wrap {
+    width: 100%;
+    max-width: 400px;
+}
+
+.name-input {
+    width: 100%;
+    padding: 16px 24px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 2px solid rgba(0, 229, 255, 0.4);
+    color: #fff;
+    font-family: var(--font-heading);
+    font-size: 1.1rem;
+    letter-spacing: 2px;
+    outline: none;
+    text-align: center;
+    transition: border-color 0.3s;
+    touch-action: auto;
+}
+
+.name-input:focus {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+}
+
+.device-label {
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.5);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.device-btn-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.device-btn {
+    padding: 16px 30px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    color: #fff;
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    letter-spacing: 1px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s;
+    min-width: 160px;
+}
+
+.device-btn.active {
+    background: rgba(0, 229, 255, 0.15);
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+    color: var(--accent-blue);
+}
+
+.device-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* ===================== MODAL UI ===================== */
 .modal {
     position: fixed;
     top: 0;
@@ -206,7 +300,7 @@ canvas {
     z-index: 2;
 }
 
-/* Animations */
+/* ===================== ANIMATIONS ===================== */
 @keyframes fadeIn {
     from {
         opacity: 0;
@@ -236,7 +330,7 @@ canvas {
     }
 }
 
-/* HUD & Main UI */
+/* ===================== HUD & MAIN UI ===================== */
 #hud-overlay {
     position: absolute;
     top: 20px;
@@ -284,7 +378,6 @@ canvas {
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    text-shadow: 0 0 15px rgba(255, 62, 62, 0.4);
 }
 
 #health-bar-container {
@@ -340,7 +433,7 @@ canvas {
     margin-left: 10px;
 }
 
-/* Inventory HUD */
+/* ===================== INVENTORY HUD ===================== */
 #inventory-hud {
     position: absolute;
     bottom: 30px;
@@ -389,7 +482,7 @@ canvas {
     opacity: 0.25;
 }
 
-/* Menu Overlays */
+/* ===================== MENU OVERLAYS ===================== */
 #menu-overlay {
     position: absolute;
     top: 50%;
@@ -397,6 +490,12 @@ canvas {
     transform: translate(-50%, -50%);
     text-align: center;
     z-index: 200;
+    padding: 30px;
+    border-radius: 16px;
+    max-height: 95vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-blue) #000;
 }
 
 #menu-overlay h1.menu-title {
@@ -407,7 +506,6 @@ canvas {
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    text-shadow: 0 0 30px rgba(255, 62, 62, 0.4);
 }
 
 /* Map Selection */
@@ -476,9 +574,211 @@ footer {
     font-size: 0.8rem;
     letter-spacing: 3px;
     z-index: 5;
+    pointer-events: none;
 }
 
 .signature {
     color: var(--accent-red);
     font-weight: bold;
+}
+
+/* Kill Feed */
+#kill-feed {
+    position: fixed;
+    top: 120px;
+    right: 20px;
+    z-index: 110;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-width: 300px;
+}
+
+.kill-msg {
+    background: rgba(0, 0, 0, 0.65);
+    border-left: 3px solid var(--accent-red);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: #fff;
+    animation: fadeIn 0.3s ease;
+}
+
+/* ===================== MOBILE CONTROLS ===================== */
+#mobile-controls {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 220px;
+    z-index: 300;
+    pointer-events: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 0 20px 30px;
+}
+
+#joystick-zone {
+    width: 160px;
+    height: 160px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: all;
+}
+
+#joystick-base {
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    border: 2px solid rgba(0, 229, 255, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+}
+
+#joystick-knob {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0, 229, 255, 0.7), rgba(0, 100, 150, 0.8));
+    border: 2px solid rgba(0, 229, 255, 0.8);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 15px rgba(0, 229, 255, 0.5);
+    transition: box-shadow 0.1s;
+}
+
+#mobile-action-btns {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    pointer-events: all;
+}
+
+.mob-btn {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    font-size: 1.6rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.1s, box-shadow 0.1s;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.mob-btn:active {
+    transform: scale(0.9);
+}
+
+.mob-btn.fire {
+    background: radial-gradient(circle, rgba(255, 62, 62, 0.7), rgba(150, 0, 0, 0.9));
+    border-color: #ff3e3e;
+    box-shadow: 0 0 20px rgba(255, 62, 62, 0.4);
+}
+
+.mob-btn.knife {
+    background: radial-gradient(circle, rgba(0, 229, 255, 0.6), rgba(0, 80, 120, 0.9));
+    border-color: #00e5ff;
+}
+
+.mob-btn.bomb {
+    background: radial-gradient(circle, rgba(255, 165, 0, 0.7), rgba(150, 80, 0, 0.9));
+    border-color: #ff9900;
+}
+
+.mob-btn.rocket {
+    background: radial-gradient(circle, rgba(191, 0, 255, 0.7), rgba(80, 0, 150, 0.9));
+    border-color: #bf00ff;
+}
+
+/* Teammates */
+.teammates-section {
+    margin: 10px 0;
+}
+
+.teammates-list {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.teammate {
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    color: var(--accent-blue);
+}
+
+.menu-info {
+    margin: 10px 0;
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 0.95rem;
+    line-height: 1.7;
+}
+
+.controls-hint {
+    margin-top: 12px;
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+}
+
+/* ===================== RESPONSIVE ===================== */
+@media (max-width: 600px) {
+    #menu-overlay h1.menu-title {
+        font-size: 2.5rem;
+    }
+
+    .class-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    #inventory-hud {
+        bottom: 200px;
+        /* push above mobile controls */
+        gap: 8px;
+        padding: 10px 16px;
+    }
+
+    .slot {
+        width: 52px;
+        height: 52px;
+    }
+
+    #hud-overlay {
+        top: 10px;
+        left: 10px;
+        right: 10px;
+        padding: 10px;
+    }
+
+    #health-bar-container {
+        width: 160px;
+    }
+
+    #kill-feed {
+        right: 10px;
+        max-width: 180px;
+        font-size: 0.75rem;
+    }
+
+    #team-status {
+        top: 80px;
+        left: 10px;
+    }
 }
