@@ -142,8 +142,8 @@ function spawnParticles(x, y, color, count = 10, speed = 5) {
 
 
 // World Settings
-const WORLD_WIDTH = 2000;
-const WORLD_HEIGHT = 2000;
+const WORLD_WIDTH = 1000;
+const WORLD_HEIGHT = 1000;
 
 // Player Settings
 const player = {
@@ -224,29 +224,29 @@ if (isNaN(goldTrial)) {
 
 let totalPoints = parseInt(localStorage.getItem('totalPoints')) || 0;
 const WALLS = [
-    // Outer boundary walls (optional since we have clamping, but good for visual)
-    { x: 0, y: 0, w: 2000, h: 20 },
-    { x: 0, y: 1980, w: 2000, h: 20 },
-    { x: 0, y: 0, w: 20, h: 2000 },
-    { x: 1980, y: 0, w: 20, h: 2000 },
+    // Outer boundary walls
+    { x: 0, y: 0, w: 1000, h: 20 },
+    { x: 0, y: 980, w: 1000, h: 20 },
+    { x: 0, y: 0, w: 20, h: 1000 },
+    { x: 980, y: 0, w: 20, h: 1000 },
 
     // Room 1: Top Left
-    { x: 400, y: 0, w: 20, h: 300 },
-    { x: 0, y: 400, w: 300, h: 20 },
+    { x: 200, y: 0, w: 20, h: 200 },
+    { x: 0, y: 200, w: 200, h: 20 },
 
     // Room 2: Center
-    { x: 800, y: 800, w: 400, h: 20 }, // Top
-    { x: 800, y: 1180, w: 400, h: 20 }, // Bottom
-    { x: 800, y: 800, w: 20, h: 100 }, // Left top
-    { x: 800, y: 1080, w: 20, h: 120 }, // Left bottom (Door at 900-1080)
-    { x: 1180, y: 800, w: 20, h: 100 }, // Right top
-    { x: 1180, y: 1080, w: 20, h: 120 }, // Right bottom (Door at 900-1080)
+    { x: 400, y: 400, w: 200, h: 20 }, // Top
+    { x: 400, y: 580, w: 200, h: 20 }, // Bottom
+    { x: 400, y: 400, w: 20, h: 60 }, // Left top
+    { x: 400, y: 520, w: 20, h: 80 }, // Left bottom
+    { x: 580, y: 400, w: 20, h: 60 }, // Right top
+    { x: 580, y: 520, w: 20, h: 80 }, // Right bottom
 
     // Maze-like walls
-    { x: 1500, y: 300, w: 20, h: 1000 },
-    { x: 1200, y: 1500, w: 600, h: 20 },
-    { x: 300, y: 1200, w: 20, h: 600 },
-    { x: 600, y: 600, w: 100, h: 100 } // A pillar
+    { x: 750, y: 150, w: 20, h: 500 },
+    { x: 600, y: 750, w: 300, h: 20 },
+    { x: 150, y: 600, w: 20, h: 300 },
+    { x: 300, y: 300, w: 50, h: 50 } // A pillar
 ];
 
 function checkWallCollision(x, y, radius) {
@@ -310,7 +310,7 @@ window.addEventListener('keydown', e => {
 
 // Bots
 const entities = [];
-const NUM_BOTS = 14; // 1 Player + 14 Bots = 15 total (3 per team)
+const NUM_BOTS = 9; // 1 Player + 9 Bots = 10 total (2 per team)
 const RANKS = ['Asker', 'Onbaşı', 'Çavuş', 'Teğmen', 'Yüzbaşı', 'Binbaşı', 'Albay', 'Kral'];
 
 class Bullet {
