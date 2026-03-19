@@ -1131,30 +1131,46 @@ function draw() {
 
     const isVipMap = selectedMap === 'VIP';
 
-    // Draw Grid
-    ctx.strokeStyle = isVipMap ? 'rgba(191, 0, 255, 0.1)' : 'rgba(255,255,255,0.05)';
+    // Optimize Grid Rendering: Only draw visible lines and stroke ONCE
+    ctx.strokeStyle = isVipMap ? 'rgba(191, 0, 255, 0.15)' : 'rgba(255,255,255,0.05)';
     ctx.lineWidth = 1;
-    for (let x = 0; x < WORLD_WIDTH; x += 100) {
-        ctx.beginPath();
-        ctx.moveTo(x - offsetX, 0 - offsetY);
-        ctx.lineTo(x - offsetX, WORLD_HEIGHT - offsetY);
-        ctx.stroke();
-    }
-    for (let y = 0; y < WORLD_HEIGHT; y += 100) {
-        ctx.beginPath();
-        ctx.moveTo(0 - offsetY, y - offsetY);
-        ctx.lineTo(WORLD_WIDTH - offsetX, y - offsetY);
-        ctx.stroke();
-    }
+    ctx.beginPath();
 
-    // Draw Walls
-    ctx.fillStyle = '#2c3e50';
-    ctx.strokeStyle = '#34495e';
-    ctx.lineWidth = 4;
-    for (const wall of WALLS) {
-        ctx.fillRect(wall.x - offsetX, wall.y - offsetY, wall.w, wall.h);
-        ctx.strokeRect(wall.x - offsetX, wall.y - offsetY, wall.w, wall.h);
+    const startX = Math.max(0, Math.floor(offsetX / 100) * 100);
+    const endX = Math.min(WORLD_WIDTH, offsetX + canvas.width + 100);
+    const startY = Math.max(0, Math.floor(offsetY / 100) * 100);
+    const endY = Math.min(WORLD_HEIGHT, offsetY + canvas.height + 100);
+
+    for (let x = startX; x <= endX; x += 100) {
+        ctx.moveTo(x - offsetX, Math.max(0, startY - offsetY));
+        ctx.lineTo(x - offsetX, Math.min(canvas.height, endY - offsetY));
     }
+    for (let y = startY; y <= endY; y += 100) {
+        ctx.moveTo(Math.max(0, startX - offsetX), y - offsetY);
+        ctx.lineTo(Math.min(canvas.width, endX - offsetX), y - offsetY);
+    }
+    ctx.stroke();
+
+    // Draw Walls Optimized
+    ctx.fillStyle = isVipMap ? '#2b00ff' : '#2c3e50';
+    ctx.strokeStyle = isVipMap ? '#6a00ff' : '#34495e';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    for (const wall of WALLS) {
+        if (wall.x + wall.w < offsetX - 20 || wall.x > offsetX + canvas.width + 20 ||
+            wall.y + wall.h < offsetY - 20 || wall.y > offsetY + canvas.height + 20) continue;
+
+        // Drop shadow for depth
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetX = 5;
+        ctx.shadowOffsetY = 5;
+        ctx.fillRect(wall.x - offsetX, wall.y - offsetY, wall.w, wall.h);
+        ctx.restore();
+        ctx.rect(wall.x - offsetX, wall.y - offsetY, wall.w, wall.h);
+    }
+    ctx.stroke();
 
     // Draw Bullets
     bullets.forEach(b => b.draw(offsetX, offsetY));
