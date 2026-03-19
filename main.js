@@ -95,11 +95,14 @@ class Particle {
         return this.life <= 0;
     }
     draw(offsetX, offsetY) {
+        // Culling: Only draw if on screen
+        if (this.x - offsetX < -50 || this.x - offsetX > canvas.width + 50 ||
+            this.y - offsetY < -50 || this.y - offsetY > canvas.height + 50) return;
+
         ctx.save();
         ctx.globalAlpha = this.life;
         ctx.fillStyle = this.color;
-        ctx.shadowBlur = 5;
-        ctx.shadowColor = this.color;
+        // Optimization: Shadow removed for particles
         ctx.beginPath();
         ctx.arc(this.x - offsetX, this.y - offsetY, this.radius, 0, Math.PI * 2);
         ctx.fill();
@@ -108,6 +111,7 @@ class Particle {
 }
 
 function spawnParticles(x, y, color, count = 10, speed = 5) {
+    if (particles.length > 150) return; // Hard cap on particles for performance
     for (let i = 0; i < count; i++) {
         particles.push(new Particle(x, y, color, Math.random() * speed + 2, Math.random() * Math.PI * 2));
     }
@@ -306,12 +310,15 @@ class Bullet {
     }
 
     draw(offsetX, offsetY) {
+        // Culling
+        if (this.x - offsetX < -20 || this.x - offsetX > canvas.width + 20 ||
+            this.y - offsetY < -20 || this.y - offsetY > canvas.height + 20) return;
+
         ctx.beginPath();
         ctx.arc(this.x - offsetX, this.y - offsetY, this.radius, 0, Math.PI * 2);
         ctx.fillStyle = this.color;
         ctx.fill();
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = this.color;
+        // Optimization: Shadow removed for bullets
         ctx.closePath();
     }
 }
@@ -775,6 +782,10 @@ class Bot {
 
     draw(offsetX, offsetY) {
         if (this.isDead) return;
+
+        // Culling
+        if (this.x - offsetX < -100 || this.x - offsetX > canvas.width + 100 ||
+            this.y - offsetY < -100 || this.y - offsetY > canvas.height + 100) return;
 
         ctx.save();
         ctx.translate(this.x - offsetX, this.y - offsetY);
