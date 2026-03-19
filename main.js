@@ -205,9 +205,6 @@ const WEAPONS = {
     }
 };
 
-let selectedClass = 'DEFAULT';
-player.weapon = WEAPONS.DEFAULT;
-
 player.hasGoldPackage = false;
 player.hasKingPackage = false;
 player.hasLordPackage = false;
