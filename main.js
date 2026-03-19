@@ -1347,11 +1347,11 @@ if (emperorBtn && emperorModal) {
     };
 }
 
-// Fixed close button selector and added better click handling
-const modalCloseBtn = emperorModal ? emperorModal.querySelector('.close-btn') : null;
-if (modalCloseBtn) {
-    modalCloseBtn.onclick = () => {
-        emperorModal.classList.add('hidden');
+// Final Robust Close Modal Logic
+const finalCloseBtn = document.getElementById('close-modal');
+if (finalCloseBtn) {
+    finalCloseBtn.onclick = () => {
+        if (emperorModal) emperorModal.classList.add('hidden');
     };
 }
 

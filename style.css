@@ -75,20 +75,29 @@ canvas {
     scrollbar-color: var(--accent-blue) #000;
 }
 
-.close-btn {
+.modal-close-btn {
     position: absolute;
     top: 20px;
     right: 25px;
-    font-size: 3.5rem;
+    font-size: 2.5rem;
     cursor: pointer;
     color: #fff;
-    opacity: 0.6;
-    transition: opacity 0.3s, transform 0.3s;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1500;
+    transition: all 0.3s;
 }
 
-.close-btn:hover {
-    opacity: 1;
-    transform: rotate(90deg);
+.modal-close-btn:hover {
+    background: var(--accent-red);
+    color: #fff;
+    transform: rotate(90deg) scale(1.1);
 }
 
 .packages-grid {
