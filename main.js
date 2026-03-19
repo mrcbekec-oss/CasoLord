@@ -11,9 +11,15 @@ let gameRunning = false;
 let kills = 0;
 let lastTime = 0;
 
+// Force name update for existing players
+if (!localStorage.getItem('forceNameResetV1')) {
+    localStorage.removeItem('playerName');
+    localStorage.setItem('forceNameResetV1', 'true');
+}
+
 let playerName = localStorage.getItem('playerName');
 if (!playerName) {
-    playerName = prompt("Lütfen Adınızı Giriniz:") || "Misafir";
+    playerName = prompt("Lütfen Adınızı Giriniz (Örn: miro, çaşo):") || "Misafir";
     localStorage.setItem('playerName', playerName);
 }
 
