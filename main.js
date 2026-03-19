@@ -574,7 +574,7 @@ class Bot {
         }
 
         let nearestEnemy = null;
-        let minDist = 400;
+        let minDist = 800; // Increased perception range
 
         // Bullet dodging
         let dodgeX = 0;
@@ -619,7 +619,7 @@ class Bot {
         if (nearestEnemy) {
             if (!this.seesEnemy) {
                 this.seesEnemy = true;
-                this.reactionTimer = selectedMap === 'VIP' ? 200 : 500; // VIP bots react faster
+                this.reactionTimer = selectedMap === 'VIP' ? 100 : 300; // Faster reaction
             }
 
             this.state = 'ATTACK';
@@ -1114,7 +1114,13 @@ function draw() {
         ctx.shadowBlur = 15;
         ctx.shadowColor = TEAMS[player.teamId].color;
         ctx.fillStyle = TEAMS[player.teamId].color;
+
+        ctx.beginPath();
+        ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
         ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
 
         // 🛡️ Pulse Shield Effect
         if (player.shieldTimer > 0) {
