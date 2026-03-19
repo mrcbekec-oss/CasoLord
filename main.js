@@ -8,10 +8,29 @@ const killFeed = document.getElementById('kill-feed');
 
 // Game State
 let gameRunning = false;
-let isMatchFinished = false; // Flag to prevent ban on completion
 let kills = 0;
 let lastTime = 0;
-let fakePlayerCount = 740 + Math.floor(Math.random() * 60);
+
+// Ban System (30 Minutes)
+function checkBan() {
+    const banUntil = localStorage.getItem('banUntil');
+    if (banUntil) {
+        const remaining = parseInt(banUntil) - Date.now();
+        if (remaining > 0) {
+            const minutes = Math.ceil(remaining / 60000);
+            alert(`MAÇTAN AYRILDIĞIN İÇİN ${minutes} DAKİKA CEZALISIN!`);
+            return true;
+        }
+    }
+    return false;
+}
+
+function recordLeave() {
+    if (!gameRunning) return;
+    const banTime = Date.now() + (30 * 60 * 1000); // 30 minutes
+    localStorage.setItem('banUntil', banTime);
+    alert("Maçtan ayrıldın! 30 dakika boyunca yeni oyun açamazsın.");
+}
 
 // Visual & Audio State
 const particles = [];
@@ -81,33 +100,6 @@ function spawnParticles(x, y, color, count = 10, speed = 5) {
 }
 
 
-// Ban System State
-const MAX_DAILY_LEAVES = 5;
-function getLeaveBatch() {
-    const today = new Date().toDateString();
-    const data = JSON.parse(localStorage.getItem('leaveData') || '{"date":"","count":0}');
-    if (data.date !== today) {
-        return { date: today, count: 0 };
-    }
-    return data;
-}
-
-function checkBan() {
-    const data = getLeaveBatch();
-    if (data.count >= MAX_DAILY_LEAVES) {
-        alert("GÜNLÜK MAÇTAN ÇIKMA SINIRINA ULAŞTIN! BUGÜNLÜK BANLANDIN.");
-        return true;
-    }
-    return false;
-}
-
-function recordLeave() {
-    if (!gameRunning || isMatchFinished) return;
-    const data = getLeaveBatch();
-    data.count++;
-    localStorage.setItem('leaveData', JSON.stringify(data));
-    alert(`Maçtan ayrıldın! Günlük limit: ${data.count}/${MAX_DAILY_LEAVES}`);
-}
 
 // World Settings
 const WORLD_WIDTH = 2000;
@@ -173,6 +165,16 @@ player.currentSlot = 1;
 player.swingProgress = 0; // 0 to 1 for knife animation
 let selectedMap = 'NORMAL';
 
+let lastKnifeTime = 0;
+let lastBombTime = 0;
+
+let goldTrial = parseInt(localStorage.getItem('goldTrial'));
+if (isNaN(goldTrial)) {
+    goldTrial = 2; // Initial 2 match trial
+    localStorage.setItem('goldTrial', goldTrial);
+}
+
+let totalPoints = parseInt(localStorage.getItem('totalPoints')) || 0;
 const WALLS = [
     // Outer boundary walls (optional since we have clamping, but good for visual)
     { x: 0, y: 0, w: 2000, h: 20 },
@@ -210,17 +212,6 @@ function checkWallCollision(x, y, radius) {
     }
     return false;
 }
-
-let lastKnifeTime = 0;
-let lastBombTime = 0;
-
-let goldTrial = parseInt(localStorage.getItem('goldTrial'));
-if (isNaN(goldTrial)) {
-    goldTrial = 2; // Initial 2 match trial
-    localStorage.setItem('goldTrial', goldTrial);
-}
-
-let totalPoints = parseInt(localStorage.getItem('totalPoints')) || 0;
 let selectedClass = 'DEFAULT';
 player.weapon = WEAPONS[selectedClass];
 player.speed = player.weapon.playerSpeed;
@@ -1031,7 +1022,6 @@ function checkTeamEliminated(teamId) {
 
 function victory(winningTeamId) {
     gameRunning = false;
-    isMatchFinished = true;
     const winningTeam = TEAMS[winningTeamId];
 
     // Award points if player team wins
@@ -1059,7 +1049,6 @@ function victory(winningTeamId) {
         </button>
     `;
     document.getElementById('restart-btn').onclick = () => location.reload();
-    document.getElementById('lobby-btn').onclick = () => location.reload();
 }
 
 function draw() {
@@ -1179,23 +1168,6 @@ function draw() {
     // Ensure no neon/colored shadows leak into the fog
     ctx.shadowBlur = 0;
 
-    // Fog of War / Limited Visibility (20cm / 200px)
-    if (gameRunning) {
-        ctx.save();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-
-        const centerX = canvas.width / 2;
-        const centerY = canvas.height / 2;
-        const radius = 300; // Expanded slightly for better feel
-
-        const visionGrad = ctx.createRadialGradient(centerX, centerY, 50, centerX, centerY, radius);
-        visionGrad.addColorStop(0, 'rgba(0,0,0,0)'); // Perfectly clear center
-        visionGrad.addColorStop(1, 'rgba(0,0,0,0.98)'); // Dark edges
-
-        ctx.fillStyle = visionGrad;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.restore();
-    }
 
     // Lord Vignette Effect
     if (player.hasLordPackage && gameRunning) {
@@ -1212,11 +1184,6 @@ function draw() {
 function updateHUD() {
     if (healthBar) healthBar.style.width = player.health + '%';
     if (killCounter) killCounter.innerText = `Kills: ${kills}`;
-
-    const countDisplay = document.getElementById('player-count-display');
-    if (countDisplay) {
-        countDisplay.innerText = `Savaş Alanı: Aktif`;
-    }
 
     const pointsSpan = document.getElementById('total-points');
     if (pointsSpan) pointsSpan.innerText = totalPoints;
@@ -1255,21 +1222,6 @@ function updateHUD() {
 
         slot.classList.toggle('locked', locked);
     });
-    const teamStatusList = document.getElementById('team-status-list');
-    if (teamStatusList) {
-        teamStatusList.innerHTML = '';
-        TEAMS.forEach(team => {
-            const div = document.createElement('div');
-            div.className = 'team-status-item' + (team.isEliminated ? ' team-eliminated' : '');
-            div.style.color = team.color;
-
-            const aliveCount = (player.teamId === team.id ? (player.isDead ? 0 : 1) : 0) +
-                entities.filter(e => e.teamId === team.id && !e.isDead).length;
-
-            div.innerHTML = `<span>${team.name}</span> <span>${team.isEliminated ? 'ELENDİ' : aliveCount + '/3'}</span>`;
-            teamStatusList.appendChild(div);
-        });
-    }
 }
 
 function addKillFeed(msg) {
@@ -1282,8 +1234,6 @@ function addKillFeed(msg) {
 
 function gameOver() {
     gameRunning = false;
-    isMatchFinished = true;
-    menuOverlay.classList.remove('hidden');
     menuOverlay.innerHTML = `
         <h1 class="menu-title">YENİLDİN!</h1>
         <div class="menu-info">
@@ -1292,7 +1242,6 @@ function gameOver() {
         <button id="restart-btn" class="premium-btn">YENİDEN DENE</button>
     `;
     document.getElementById('restart-btn').onclick = () => location.reload();
-    document.getElementById('lobby-btn').onclick = () => location.reload();
 }
 
 function loop(time) {
@@ -1315,24 +1264,12 @@ canvas.height = window.innerHeight;
 
 // Note: selectedMap is already declared at the top as 'NORMAL'
 
-if (player.hasLordPackage) {
-    alert("LORD PAKET AKTİF! Normal veya VIP Harita Seçebilirsin.");
-}
-if (player.hasVIPPackage) {
-    alert("VIP PAKET AKTİF! İndirimlerin ve VIP Harita Hakkın Tanımlandı.");
-}
 updateHUD();
 
-document.querySelectorAll('.map-btn').forEach(btn => {
-    btn.onclick = () => {
-        selectedMap = btn.dataset.map;
-        document.getElementById('map-selection').classList.add('hidden');
-        document.getElementById('start-btn').classList.remove('hidden');
-        startGame();
-    };
-});
 
 startBtn.onclick = () => {
+    if (checkBan()) return;
+
     // Check if player has enough points for their weapon
     if (totalPoints < player.weapon.cost) {
         alert("Bu silah için yeterli puanın yok!");
@@ -1349,6 +1286,15 @@ startBtn.onclick = () => {
     }
 };
 
+document.querySelectorAll('.map-btn').forEach(btn => {
+    btn.onclick = () => {
+        selectedMap = btn.dataset.map;
+        document.getElementById('map-selection').classList.add('hidden');
+        document.getElementById('start-btn').classList.remove('hidden');
+        startGame();
+    };
+});
+
 function startGame() {
     // Security check: Force Normal Map if not eligible
     if (!(player.hasLordPackage || player.hasVIPPackage)) {
@@ -1359,7 +1305,6 @@ function startGame() {
     gameRunning = true;
     initAudio();
     player.shieldTimer = 3000; // Initial shield
-    isMatchFinished = false;
     lastTime = Date.now();
 
     // Decrement Gold Trial if used
@@ -1371,25 +1316,6 @@ function startGame() {
     updateHUD();
     requestAnimationFrame(loop);
 }
-
-// Class Selection Logic
-document.querySelectorAll('.class-btn').forEach(btn => {
-    btn.onclick = () => {
-        const type = btn.dataset.class;
-        const weapon = WEAPONS[type];
-
-        if (totalPoints >= weapon.cost) {
-            selectedClass = type;
-            player.weapon = weapon;
-            player.speed = weapon.playerSpeed;
-
-            document.querySelectorAll('.class-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-        } else {
-            alert(`Bu sınıfı açmak için ${weapon.cost} puan gerekiyor! Şuan ${totalPoints} puanın var.`);
-        }
-    };
-});
 
 const emperorBtn = document.getElementById('emperor-btn');
 const emperorModal = document.getElementById('emperor-modal');
@@ -1449,6 +1375,26 @@ document.querySelectorAll('.buy-btn').forEach(btn => {
     };
 });
 
+// Class Selection Logic
+document.querySelectorAll('.class-btn').forEach(btn => {
+    btn.onclick = () => {
+        const type = btn.dataset.class;
+        const weapon = WEAPONS[type];
+
+        if (totalPoints >= weapon.cost) {
+            selectedClass = type;
+            player.weapon = weapon;
+            player.speed = weapon.playerSpeed;
+
+            document.querySelectorAll('.class-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        } else {
+            alert(`Bu sınıfı açmak için ${weapon.cost} puan gerekiyor! Şuan ${totalPoints} puanın var.`);
+        }
+    };
+});
+
+
 function useKnife() {
     if (!gameRunning || player.isDead) return;
     const hasEffect = player.hasGoldPackage || (goldTrial > 0) || player.hasLordPackage;
@@ -1474,7 +1420,6 @@ function useKnife() {
                 bot.isDead = true;
                 bot.respawnTimer = 10000;
                 kills++;
-                addKillFeed(`You knifed ${bot.name}!`);
                 updateHUD();
                 checkTeamEliminated(bot.teamId);
             }
@@ -1552,6 +1497,11 @@ window.addEventListener('mousedown', (e) => {
         useRocket();
     }
 });
+
+
+window.onbeforeunload = () => {
+    recordLeave();
+};
 
 requestAnimationFrame(loop);
 updateHUD(); // Initial HUD update to show points and locks
