@@ -911,6 +911,14 @@ function update(deltaTime) {
         if (!checkWallCollision(player.x + moveX, player.y, player.radius)) player.x += moveX;
         if (!checkWallCollision(player.x, player.y + moveY, player.radius)) player.y += moveY;
 
+        // Player bounds
+        player.x = Math.max(0, Math.min(WORLD_WIDTH, player.x));
+        player.y = Math.max(0, Math.min(WORLD_HEIGHT, player.y));
+
+        // Player angle to mouse
+        const screenX = canvas.width / 2;
+        const screenY = canvas.height / 2;
+        player.angle = Math.atan2(mouse.y - screenY, mouse.x - screenX);
     }
 
     // Update Entities (Autonomous)
