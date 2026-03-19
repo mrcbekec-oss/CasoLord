@@ -1016,29 +1016,35 @@ function update(deltaTime) {
                 powerups.splice(i, 1);
             }
         }
+    } // Close Powerups loop
 
-        if (screenShake > 0) screenShake *= 0.9;
-        if (screenShake < 0.1) screenShake = 0;
+    if (screenShake > 0) screenShake *= 0.9;
+    if (screenShake < 0.1) screenShake = 0;
 
-        // Update Rockets
-        for (let i = rockets.length - 1; i >= 0; i--) {
-            const r = rockets[i];
-            if (r.update()) {
-                rockets.splice(i, 1);
-                continue;
-            }
-            entities.forEach(bot => {
-                if (bot.isDead || r.teamId === bot.teamId) return;
-                const dist = Math.sqrt((r.x - bot.x) ** 2 + (r.y - bot.y) ** 2);
-                if (dist < bot.radius) {
-                    r.explode();
-                    rockets.splice(i, 1);
-                }
-            });
+    // Update Rockets
+    for (let i = rockets.length - 1; i >= 0; i--) {
+        const r = rockets[i];
+        if (r.update()) {
+            rockets.splice(i, 1);
+            continue;
         }
-
+        entities.forEach(bot => {
+            if (bot.isDead || r.teamId === bot.teamId) return;
+            const dist = Math.sqrt((r.x - bot.x) ** 2 + (r.y - bot.y) ** 2);
+            if (dist < bot.radius) {
+                r.explode();
+                rockets.splice(i, 1);
+            }
+        });
     }
-}
+
+    // Update Explosions
+    for (let i = explosions.length - 1; i >= 0; i--) {
+        explosions[i].update();
+        if (explosions[i].finished) {
+            explosions.splice(i, 1);
+        }
+    }
 }
 
 function checkTeamEliminated(teamId) {
