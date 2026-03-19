@@ -889,84 +889,76 @@ function update(deltaTime) {
         if (!checkWallCollision(player.x + moveX, player.y, player.radius)) player.x += moveX;
         if (!checkWallCollision(player.x, player.y + moveY, player.radius)) player.y += moveY;
 
-        // Player bounds
-        player.x = Math.max(0, Math.min(WORLD_WIDTH, player.x));
-        player.y = Math.max(0, Math.min(WORLD_HEIGHT, player.y));
+    }
 
-        // Player angle to mouse
-        const screenX = canvas.width / 2;
-        const screenY = canvas.height / 2;
-        player.angle = Math.atan2(mouse.y - screenY, mouse.x - screenX);
+    // Update Entities (Autonomous)
+    entities.forEach(bot => bot.update());
 
-        // Update Entities
-        entities.forEach(bot => bot.update());
+    // Update Bullets
+    for (let i = bullets.length - 1; i >= 0; i--) {
+        const b = bullets[i];
+        if (b.update()) {
+            bullets.splice(i, 1);
+            continue;
+        }
 
-        // Update Bullets
-        for (let i = bullets.length - 1; i >= 0; i--) {
-            const b = bullets[i];
-            if (b.update()) {
+        if (b.distance > b.maxDistance) {
+            bullets.splice(i, 1);
+            continue;
+        }
+
+        // Collision Check (Player)
+        if (!player.isDead && b.teamId !== player.teamId && player.shieldTimer <= 0) {
+            const dx = b.x - player.x;
+            const dy = b.y - player.y;
+            if (Math.sqrt(dx * dx + dy * dy) < player.radius) {
+                let damage = b.damage;
+                if (player.hasLordPackage) damage *= 0.5;
+                player.health -= damage;
+                spawnParticles(player.x, player.y, '#ff0000', 10);
+                screenShake = Math.max(screenShake, 5);
+                playSound(150, 'sine', 0.1, 0.1);
                 bullets.splice(i, 1);
+                updateHUD();
+                if (player.health <= 0) {
+                    player.health = 0;
+                    player.isDead = true;
+                    player.respawnTimer = 10000;
+                    checkTeamEliminated(player.teamId);
+                }
                 continue;
             }
+        }
 
-            if (b.distance > b.maxDistance) {
+        // Check bot collisions
+        for (let j = entities.length - 1; j >= 0; j--) {
+            const bot = entities[j];
+            if (bot.isDead || b.teamId === bot.teamId || bot.shieldTimer > 0) continue;
+
+            const dx = b.x - bot.x;
+            const dy = b.y - bot.y;
+            if (Math.sqrt(dx * dx + dy * dy) < bot.radius) {
+                bot.health -= b.damage;
+                spawnParticles(bot.x, bot.y, bot.color, 8);
+                playSound(200, 'sine', 0.1, 0.05);
                 bullets.splice(i, 1);
-                continue;
-            }
+                if (bot.health <= 0) {
+                    bot.health = 0;
+                    bot.isDead = true;
+                    bot.respawnTimer = 10000;
+                    spawnParticles(bot.x, bot.y, '#fff', 20, 8);
+                    spawnPowerUp(bot.x, bot.y);
+                    checkTeamEliminated(bot.teamId);
 
-            // Collision Check
-            if (b.teamId !== player.teamId) {
-                const dx = b.x - player.x;
-                const dy = b.y - player.y;
-                if (Math.sqrt(dx * dx + dy * dy) < player.radius && player.shieldTimer <= 0) {
-                    let damage = b.damage;
-                    if (player.hasLordPackage) damage *= 0.5; // Damage resistance
-                    player.health -= damage;
-                    spawnParticles(player.x, player.y, '#ff0000', 10); // Blood
-                    screenShake = Math.max(screenShake, 5);
-                    playSound(150, 'sine', 0.1, 0.1); // Hit sound
-                    bullets.splice(i, 1);
+                    if (b.owner === 'player') {
+                        kills++;
+                        addKillFeed(`You eliminated ${bot.name}`);
+                    } else {
+                        addKillFeed(`${entities.find(e => e.teamId === b.teamId)?.name || 'Someone'} eliminated ${bot.name}`);
+                    }
                     updateHUD();
-                    if (player.health <= 0) {
-                        player.health = 0;
-                        player.isDead = true;
-                        player.respawnTimer = 10000;
-                        checkTeamEliminated(player.teamId);
-                    }
-                    continue;
                 }
-            }
-
-            // Check bot collisions if not on same team
-            for (let j = entities.length - 1; j >= 0; j--) {
-                const bot = entities[j];
-                if (bot.isDead || b.teamId === bot.teamId || bot.shieldTimer > 0) continue;
-
-                const dx = b.x - bot.x;
-                const dy = b.y - bot.y;
-                if (Math.sqrt(dx * dx + dy * dy) < bot.radius) {
-                    bot.health -= b.damage;
-                    spawnParticles(bot.x, bot.y, bot.color, 8);
-                    playSound(200, 'sine', 0.1, 0.05);
-                    bullets.splice(i, 1);
-                    if (bot.health <= 0) {
-                        bot.health = 0;
-                        bot.isDead = true;
-                        bot.respawnTimer = 10000;
-                        spawnParticles(bot.x, bot.y, '#fff', 20, 8);
-                        spawnPowerUp(bot.x, bot.y); // Drop powerup
-                        checkTeamEliminated(bot.teamId);
-
-                        if (b.owner === 'player') {
-                            kills++;
-                            addKillFeed(`You eliminated ${bot.name}`);
-                        } else {
-                            addKillFeed(`${entities.find(e => e.teamId === b.teamId)?.name || 'Someone'} eliminated ${bot.name}`);
-                        }
-                        updateHUD();
-                    }
-                    break;
-                }
+                break;
             }
         }
     }
@@ -992,90 +984,90 @@ function update(deltaTime) {
             powerups.splice(i, 1);
             continue;
         }
-        const dx = p.x - player.x;
-        const dy = p.y - player.y;
-        if (Math.sqrt(dx * dx + dy * dy) < player.radius + p.radius) {
-            // Collect
-            if (p.type === 'HEALTH') {
-                player.health = Math.min(player.maxHealth, player.health + 30);
-                playSound(600, 'sine', 0.2, 0.1, false);
-            } else if (p.type === 'SHIELD') {
-                player.shieldTimer = Math.max(player.shieldTimer, 5000); // 5 sec shield
-                playSound(800, 'sine', 0.2, 0.1, false);
-            } else {
-                totalPoints += 5;
-                localStorage.setItem('totalPoints', totalPoints);
-                playSound(1000, 'sine', 0.2, 0.1, false);
+        if (!player.isDead) {
+            const dx = p.x - player.x;
+            const dy = p.y - player.y;
+            if (Math.sqrt(dx * dx + dy * dy) < player.radius + p.radius) {
+                if (p.type === 'HEALTH') {
+                    player.health = Math.min(player.maxHealth, player.health + 30);
+                    playSound(600, 'sine', 0.2, 0.1, false);
+                } else if (p.type === 'SHIELD') {
+                    player.shieldTimer = Math.max(player.shieldTimer, 5000); // 5 sec shield
+                    playSound(800, 'sine', 0.2, 0.1, false);
+                } else {
+                    totalPoints += 5;
+                    localStorage.setItem('totalPoints', totalPoints);
+                    playSound(1000, 'sine', 0.2, 0.1, false);
+                }
+                updateHUD();
+                powerups.splice(i, 1);
             }
-            updateHUD();
-            powerups.splice(i, 1);
         }
-    }
 
-    if (screenShake > 0) screenShake *= 0.9;
-    if (screenShake < 0.1) screenShake = 0;
+        if (screenShake > 0) screenShake *= 0.9;
+        if (screenShake < 0.1) screenShake = 0;
 
-    // Update Rockets
-    for (let i = rockets.length - 1; i >= 0; i--) {
-        const r = rockets[i];
-        if (r.update()) {
-            rockets.splice(i, 1);
-            continue;
-        }
-        entities.forEach(bot => {
-            if (bot.isDead || r.teamId === bot.teamId) return;
-            const dist = Math.sqrt((r.x - bot.x) ** 2 + (r.y - bot.y) ** 2);
-            if (dist < bot.radius) {
-                r.explode();
+        // Update Rockets
+        for (let i = rockets.length - 1; i >= 0; i--) {
+            const r = rockets[i];
+            if (r.update()) {
                 rockets.splice(i, 1);
+                continue;
             }
-        });
-    }
+            entities.forEach(bot => {
+                if (bot.isDead || r.teamId === bot.teamId) return;
+                const dist = Math.sqrt((r.x - bot.x) ** 2 + (r.y - bot.y) ** 2);
+                if (dist < bot.radius) {
+                    r.explode();
+                    rockets.splice(i, 1);
+                }
+            });
+        }
 
-    // Update Explosions
-    for (let i = explosions.length - 1; i >= 0; i--) {
-        explosions[i].update();
-        if (explosions[i].finished) {
-            explosions.splice(i, 1);
+        // Update Explosions
+        for (let i = explosions.length - 1; i >= 0; i--) {
+            explosions[i].update();
+            if (explosions[i].finished) {
+                explosions.splice(i, 1);
+            }
         }
     }
-}
 
-function checkTeamEliminated(teamId) {
-    const isPlayerInTeam = player.teamId === teamId;
-    const teamBots = entities.filter(e => e.teamId === teamId);
+    function checkTeamEliminated(teamId) {
+        const isPlayerInTeam = player.teamId === teamId;
+        const teamBots = entities.filter(e => e.teamId === teamId);
 
-    const allDead = (isPlayerInTeam ? player.isDead : true) && teamBots.every(b => b.isDead);
+        const allDead = (isPlayerInTeam ? player.isDead : true) && teamBots.every(b => b.isDead);
 
-    if (allDead) {
-        TEAMS[teamId].isEliminated = true;
-        addKillFeed(`${TEAMS[teamId].name.toUpperCase()} TAKIMI ELENDİ!`);
+        if (allDead) {
+            TEAMS[teamId].isEliminated = true;
+            addKillFeed(`${TEAMS[teamId].name.toUpperCase()} TAKIMI ELENDİ!`);
 
-        // Check for winner
-        const activeTeams = TEAMS.filter(t => !t.isEliminated);
-        if (activeTeams.length === 1) {
-            victory(activeTeams[0].id);
-        } else if (isPlayerInTeam) {
-            setTimeout(() => gameOver(), 2000);
+            // Check for winner
+            const activeTeams = TEAMS.filter(t => !t.isEliminated);
+            if (activeTeams.length === 1) {
+                victory(activeTeams[0].id);
+            } else if (isPlayerInTeam) {
+                setTimeout(() => gameOver(), 2000);
+            }
         }
     }
-}
 
-function victory(winningTeamId) {
-    gameRunning = false;
-    const winningTeam = TEAMS[winningTeamId];
+    function victory(winningTeamId) {
+        gameRunning = false;
+        const winningTeam = TEAMS[winningTeamId];
 
-    // Award points if player team wins
-    if (winningTeamId === player.teamId) {
-        totalPoints += 3;
-        localStorage.setItem('totalPoints', totalPoints);
-    }
+        // Award points if player team wins
+        if (winningTeamId === player.teamId) {
+            totalPoints += 3;
+            localStorage.setItem('totalPoints', totalPoints);
+        }
 
-    menuOverlay.classList.remove('hidden');
+        menuOverlay.classList.remove('hidden');
 
-    const isPlayerWin = winningTeamId === player.teamId;
+        const isPlayerWin = winningTeamId === player.teamId;
 
-    menuOverlay.innerHTML = `
+        menuOverlay.innerHTML = `
         <h1 class="menu-title" style="background: linear-gradient(180deg, #fff, #ffd700); text-shadow: 0 0 30px rgba(255, 215, 0, 0.6);">
             ${isPlayerWin ? 'ZAFER!' : 'MAÇ BİTTİ'}
         </h1>
@@ -1089,487 +1081,487 @@ function victory(winningTeamId) {
             YENİDEN OYNA
         </button>
     `;
-    document.getElementById('restart-btn').onclick = () => location.reload();
-}
-
-function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    const offsetX = player.x - canvas.width / 2 + (Math.random() - 0.5) * screenShake;
-    const offsetY = player.y - canvas.height / 2 + (Math.random() - 0.5) * screenShake;
-
-    const isVipMap = selectedMap === 'VIP';
-
-    // Draw Grid
-    ctx.strokeStyle = isVipMap ? 'rgba(191, 0, 255, 0.1)' : 'rgba(255,255,255,0.05)';
-    ctx.lineWidth = 1;
-    for (let x = 0; x < WORLD_WIDTH; x += 100) {
-        ctx.beginPath();
-        ctx.moveTo(x - offsetX, 0 - offsetY);
-        ctx.lineTo(x - offsetX, WORLD_HEIGHT - offsetY);
-        ctx.stroke();
-    }
-    for (let y = 0; y < WORLD_HEIGHT; y += 100) {
-        ctx.beginPath();
-        ctx.moveTo(0 - offsetY, y - offsetY);
-        ctx.lineTo(WORLD_WIDTH - offsetX, y - offsetY);
-        ctx.stroke();
+        document.getElementById('restart-btn').onclick = () => location.reload();
     }
 
-    // Draw Walls
-    ctx.fillStyle = '#2c3e50';
-    ctx.strokeStyle = '#34495e';
-    ctx.lineWidth = 4;
-    for (const wall of WALLS) {
-        ctx.fillRect(wall.x - offsetX, wall.y - offsetY, wall.w, wall.h);
-        ctx.strokeRect(wall.x - offsetX, wall.y - offsetY, wall.w, wall.h);
-    }
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw Bullets
-    bullets.forEach(b => b.draw(offsetX, offsetY));
+        const offsetX = player.x - canvas.width / 2 + (Math.random() - 0.5) * screenShake;
+        const offsetY = player.y - canvas.height / 2 + (Math.random() - 0.5) * screenShake;
 
-    // Draw Rockets
-    rockets.forEach(r => r.draw(offsetX, offsetY));
+        const isVipMap = selectedMap === 'VIP';
 
-    // Draw Bombs
-    bombs.forEach(b => b.draw(offsetX, offsetY));
-
-    // Draw Explosions
-    explosions.forEach(e => e.draw(offsetX, offsetY));
-
-    // Draw Particles
-    particles.forEach(p => p.draw(offsetX, offsetY));
-
-    // Draw PowerUps
-    powerups.forEach(p => p.draw(offsetX, offsetY));
-
-    // Draw Bots
-    entities.forEach(bot => bot.draw(offsetX, offsetY));
-
-    // Draw Player
-    if (!player.isDead) {
-        ctx.save();
-        ctx.translate(canvas.width / 2, canvas.height / 2);
-        ctx.rotate(player.angle);
-
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = TEAMS[player.teamId].color;
-
-        ctx.beginPath();
-        ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 3;
-        ctx.stroke();
-
-        // 🛡️ Pulse Shield Effect
-        if (player.shieldTimer > 0) {
+        // Draw Grid
+        ctx.strokeStyle = isVipMap ? 'rgba(191, 0, 255, 0.1)' : 'rgba(255,255,255,0.05)';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < WORLD_WIDTH; x += 100) {
             ctx.beginPath();
-            ctx.arc(0, 0, player.radius + 5 + Math.sin(Date.now() / 100) * 3, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(0, 229, 255, 0.6)';
-            ctx.lineWidth = 3;
+            ctx.moveTo(x - offsetX, 0 - offsetY);
+            ctx.lineTo(x - offsetX, WORLD_HEIGHT - offsetY);
+            ctx.stroke();
+        }
+        for (let y = 0; y < WORLD_HEIGHT; y += 100) {
+            ctx.beginPath();
+            ctx.moveTo(0 - offsetY, y - offsetY);
+            ctx.lineTo(WORLD_WIDTH - offsetX, y - offsetY);
             ctx.stroke();
         }
 
-        // Player gun
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(15, -4, 25, 8);
+        // Draw Walls
+        ctx.fillStyle = '#2c3e50';
+        ctx.strokeStyle = '#34495e';
+        ctx.lineWidth = 4;
+        for (const wall of WALLS) {
+            ctx.fillRect(wall.x - offsetX, wall.y - offsetY, wall.w, wall.h);
+            ctx.strokeRect(wall.x - offsetX, wall.y - offsetY, wall.w, wall.h);
+        }
 
-        // Knife Swing Animation
-        if (player.swingProgress > 0) {
-            ctx.restore(); // Exit rotated state to draw relative to player position but with custom arc
+        // Draw Bullets
+        bullets.forEach(b => b.draw(offsetX, offsetY));
+
+        // Draw Rockets
+        rockets.forEach(r => r.draw(offsetX, offsetY));
+
+        // Draw Bombs
+        bombs.forEach(b => b.draw(offsetX, offsetY));
+
+        // Draw Explosions
+        explosions.forEach(e => e.draw(offsetX, offsetY));
+
+        // Draw Particles
+        particles.forEach(p => p.draw(offsetX, offsetY));
+
+        // Draw PowerUps
+        powerups.forEach(p => p.draw(offsetX, offsetY));
+
+        // Draw Bots
+        entities.forEach(bot => bot.draw(offsetX, offsetY));
+
+        // Draw Player
+        if (!player.isDead) {
             ctx.save();
             ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate(player.angle);
 
-            const startAngle = player.angle - Math.PI / 3;
-            const endAngle = player.angle + Math.PI / 3;
-            const currentArc = startAngle + (endAngle - startAngle) * player.swingProgress;
-
-            ctx.beginPath();
-            ctx.arc(0, 0, 80, startAngle, currentArc);
-            ctx.strokeStyle = `rgba(0, 229, 255, ${1 - player.swingProgress})`;
-            ctx.lineWidth = 15;
-            ctx.lineCap = 'round';
-            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = TEAMS[player.teamId].color;
 
             ctx.beginPath();
-            ctx.arc(0, 0, 80, startAngle, currentArc);
-            ctx.strokeStyle = `rgba(255, 255, 255, ${(1 - player.swingProgress) * 0.5})`;
-            ctx.lineWidth = 5;
+            ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
             ctx.stroke();
-        }
 
-        ctx.restore();
-
-        ctx.shadowBlur = 0; // Clear player glow
-        ctx.fillText(TEAMS[player.teamId].name.toUpperCase() + " TAKIMI", canvas.width / 2, canvas.height / 2 - 40);
-    } else {
-        // Draw Respawn Timer
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 24px Rajdhani';
-        ctx.textAlign = 'center';
-        ctx.fillText(`CANLANMA: ${Math.ceil(player.respawnTimer / 1000)}s`, canvas.width / 2, canvas.height / 2);
-    }
-
-    // Ensure no neon/colored shadows leak into the fog
-    ctx.shadowBlur = 0;
-
-
-    // Lord Vignette Effect
-    if (player.hasLordPackage && gameRunning) {
-        ctx.save();
-        const grad = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, 0, canvas.width / 2, canvas.height / 2, canvas.width);
-        grad.addColorStop(0, 'rgba(255, 215, 0, 0)');
-        grad.addColorStop(1, 'rgba(255, 215, 0, 0.08)');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.restore();
-    }
-}
-
-function updateHUD() {
-    if (healthBar) healthBar.style.width = player.health + '%';
-    if (killCounter) killCounter.innerText = `Kills: ${kills}`;
-
-    const pointsSpan = document.getElementById('total-points');
-    if (pointsSpan) pointsSpan.innerText = totalPoints;
-
-    // Refresh class availability
-    document.querySelectorAll('.class-btn').forEach(btn => {
-        const type = btn.dataset.class;
-        const weapon = WEAPONS[type];
-
-        if (totalPoints < weapon.cost) {
-            btn.classList.add('locked');
-        } else {
-            btn.classList.remove('locked');
-        }
-    });
-
-    // Update Inventory HUD
-    const slots = document.querySelectorAll('.slot');
-    slots.forEach(slot => {
-        const slotId = parseInt(slot.dataset.slot);
-        slot.classList.toggle('active', player.currentSlot === slotId);
-
-        let locked = false;
-        if (slotId === 2) {
-            locked = !(player.hasGoldPackage || goldTrial > 0 || player.hasLordPackage);
-            if (goldTrial > 0 && !player.hasGoldPackage && !player.hasLordPackage) {
-                slot.querySelector('.label').innerText = `BIÇAK (${goldTrial})`;
-            } else {
-                slot.querySelector('.label').innerText = `BIÇAK`;
+            // 🛡️ Pulse Shield Effect
+            if (player.shieldTimer > 0) {
+                ctx.beginPath();
+                ctx.arc(0, 0, player.radius + 5 + Math.sin(Date.now() / 100) * 3, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(0, 229, 255, 0.6)';
+                ctx.lineWidth = 3;
+                ctx.stroke();
             }
-        } else if (slotId === 3) {
-            locked = !(player.hasKingPackage || player.hasLordPackage);
-        } else if (slotId === 4) {
-            locked = !player.hasLordPackage;
+
+            // Player gun
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(15, -4, 25, 8);
+
+            // Knife Swing Animation
+            if (player.swingProgress > 0) {
+                ctx.restore(); // Exit rotated state to draw relative to player position but with custom arc
+                ctx.save();
+                ctx.translate(canvas.width / 2, canvas.height / 2);
+
+                const startAngle = player.angle - Math.PI / 3;
+                const endAngle = player.angle + Math.PI / 3;
+                const currentArc = startAngle + (endAngle - startAngle) * player.swingProgress;
+
+                ctx.beginPath();
+                ctx.arc(0, 0, 80, startAngle, currentArc);
+                ctx.strokeStyle = `rgba(0, 229, 255, ${1 - player.swingProgress})`;
+                ctx.lineWidth = 15;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(0, 0, 80, startAngle, currentArc);
+                ctx.strokeStyle = `rgba(255, 255, 255, ${(1 - player.swingProgress) * 0.5})`;
+                ctx.lineWidth = 5;
+                ctx.stroke();
+            }
+
+            ctx.restore();
+
+            ctx.shadowBlur = 0; // Clear player glow
+            ctx.fillText(TEAMS[player.teamId].name.toUpperCase() + " TAKIMI", canvas.width / 2, canvas.height / 2 - 40);
+        } else {
+            // Draw Respawn Timer
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 24px Rajdhani';
+            ctx.textAlign = 'center';
+            ctx.fillText(`CANLANMA: ${Math.ceil(player.respawnTimer / 1000)}s`, canvas.width / 2, canvas.height / 2);
         }
 
-        slot.classList.toggle('locked', locked);
-    });
+        // Ensure no neon/colored shadows leak into the fog
+        ctx.shadowBlur = 0;
 
-    // Update Team Status
-    const teamStatusDiv = document.getElementById('team-status');
-    if (teamStatusDiv) {
-        teamStatusDiv.innerHTML = TEAMS.map(team => {
-            if (team.isEliminated) return '';
-            const aliveCount = (player.teamId === team.id && !player.isDead ? 1 : 0) +
-                entities.filter(bot => bot.teamId === team.id && !bot.isDead).length;
 
-            if (aliveCount === 0) return '';
+        // Lord Vignette Effect
+        if (player.hasLordPackage && gameRunning) {
+            ctx.save();
+            const grad = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, 0, canvas.width / 2, canvas.height / 2, canvas.width);
+            grad.addColorStop(0, 'rgba(255, 215, 0, 0)');
+            grad.addColorStop(1, 'rgba(255, 215, 0, 0.08)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.restore();
+        }
+    }
 
-            return `
+    function updateHUD() {
+        if (healthBar) healthBar.style.width = player.health + '%';
+        if (killCounter) killCounter.innerText = `Kills: ${kills}`;
+
+        const pointsSpan = document.getElementById('total-points');
+        if (pointsSpan) pointsSpan.innerText = totalPoints;
+
+        // Refresh class availability
+        document.querySelectorAll('.class-btn').forEach(btn => {
+            const type = btn.dataset.class;
+            const weapon = WEAPONS[type];
+
+            if (totalPoints < weapon.cost) {
+                btn.classList.add('locked');
+            } else {
+                btn.classList.remove('locked');
+            }
+        });
+
+        // Update Inventory HUD
+        const slots = document.querySelectorAll('.slot');
+        slots.forEach(slot => {
+            const slotId = parseInt(slot.dataset.slot);
+            slot.classList.toggle('active', player.currentSlot === slotId);
+
+            let locked = false;
+            if (slotId === 2) {
+                locked = !(player.hasGoldPackage || goldTrial > 0 || player.hasLordPackage);
+                if (goldTrial > 0 && !player.hasGoldPackage && !player.hasLordPackage) {
+                    slot.querySelector('.label').innerText = `BIÇAK (${goldTrial})`;
+                } else {
+                    slot.querySelector('.label').innerText = `BIÇAK`;
+                }
+            } else if (slotId === 3) {
+                locked = !(player.hasKingPackage || player.hasLordPackage);
+            } else if (slotId === 4) {
+                locked = !player.hasLordPackage;
+            }
+
+            slot.classList.toggle('locked', locked);
+        });
+
+        // Update Team Status
+        const teamStatusDiv = document.getElementById('team-status');
+        if (teamStatusDiv) {
+            teamStatusDiv.innerHTML = TEAMS.map(team => {
+                if (team.isEliminated) return '';
+                const aliveCount = (player.teamId === team.id && !player.isDead ? 1 : 0) +
+                    entities.filter(bot => bot.teamId === team.id && !bot.isDead).length;
+
+                if (aliveCount === 0) return '';
+
+                return `
                 <div class="team-info" style="color: ${team.color}">
                     <span>${team.name.toUpperCase()}</span>
                     <span class="team-count">${aliveCount} KİŞİ</span>
                 </div>
             `;
-        }).join('');
+            }).join('');
+        }
     }
-}
 
-function addKillFeed(msg) {
-    const div = document.createElement('div');
-    div.className = 'kill-msg';
-    div.innerText = msg;
-    killFeed.appendChild(div);
-    setTimeout(() => div.remove(), 3000);
-}
+    function addKillFeed(msg) {
+        const div = document.createElement('div');
+        div.className = 'kill-msg';
+        div.innerText = msg;
+        killFeed.appendChild(div);
+        setTimeout(() => div.remove(), 3000);
+    }
 
-function gameOver() {
-    gameRunning = false;
-    menuOverlay.innerHTML = `
+    function gameOver() {
+        gameRunning = false;
+        menuOverlay.innerHTML = `
         <h1 class="menu-title">YENİLDİN!</h1>
         <div class="menu-info">
             <p>Skorun: ${kills} Leş</p>
         </div>
         <button id="restart-btn" class="premium-btn">YENİDEN DENE</button>
     `;
-    document.getElementById('restart-btn').onclick = () => location.reload();
-}
+        document.getElementById('restart-btn').onclick = () => location.reload();
+    }
 
-function loop(time) {
-    if (lastTime === 0) lastTime = time;
-    const deltaTime = time - lastTime;
-    lastTime = time;
+    function loop(time) {
+        if (lastTime === 0) lastTime = time;
+        const deltaTime = time - lastTime;
+        lastTime = time;
 
-    update(deltaTime);
-    draw();
+        update(deltaTime);
+        draw();
 
-    requestAnimationFrame(loop);
-}
+        requestAnimationFrame(loop);
+    }
 
-window.addEventListener('resize', () => {
+    window.addEventListener('resize', () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    });
+
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-});
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
-
-// Note: selectedMap is already declared at the top as 'NORMAL'
-
-updateHUD();
-
-
-startBtn.onclick = () => {
-    if (checkBan()) return;
-
-    // Check if player has enough points for their weapon
-    if (totalPoints < player.weapon.cost) {
-        alert("Bu silah için yeterli puanın yok!");
-        return;
-    }
-
-    if (player.hasLordPackage || player.hasVIPPackage) {
-        // Show map choice
-        startBtn.classList.add('hidden');
-        document.getElementById('map-selection').classList.remove('hidden');
-    } else {
-        selectedMap = 'NORMAL';
-        startGame();
-    }
-};
-
-document.querySelectorAll('.map-btn').forEach(btn => {
-    btn.onclick = () => {
-        selectedMap = btn.dataset.map;
-        document.getElementById('map-selection').classList.add('hidden');
-        document.getElementById('start-btn').classList.remove('hidden');
-        startGame();
-    };
-});
-
-function startGame() {
-    // Security check: Force Normal Map if not eligible
-    if (!(player.hasLordPackage || player.hasVIPPackage)) {
-        selectedMap = 'NORMAL';
-    }
-
-    menuOverlay.classList.add('hidden');
-    gameRunning = true;
-    initAudio();
-    player.shieldTimer = 3000; // Initial shield
-    lastTime = 0;
-
-    // Decrement Gold Trial if used
-    if (goldTrial > 0 && !player.hasGoldPackage) {
-        goldTrial--;
-        localStorage.setItem('goldTrial', goldTrial);
-    }
+    // Note: selectedMap is already declared at the top as 'NORMAL'
 
     updateHUD();
-    requestAnimationFrame(loop);
-}
 
-const emperorBtn = document.getElementById('emperor-btn');
-const emperorModal = document.getElementById('emperor-modal');
-const closeBtn = document.querySelector('.close-btn');
 
-if (emperorBtn && emperorModal) {
-    emperorBtn.onclick = () => {
-        emperorModal.classList.remove('hidden');
-    };
-}
+    startBtn.onclick = () => {
+        if (checkBan()) return;
 
-// Final Robust Close Modal Logic
-const finalCloseBtn = document.getElementById('close-modal');
-if (finalCloseBtn) {
-    finalCloseBtn.onclick = () => {
-        if (emperorModal) emperorModal.classList.add('hidden');
-    };
-}
-
-window.onclick = (event) => {
-    if (event.target == emperorModal) {
-        emperorModal.classList.add('hidden');
-    }
-};
-
-document.querySelectorAll('.buy-btn').forEach(btn => {
-    btn.onclick = () => {
-        const pkgName = btn.parentElement.querySelector('h3').innerText;
-        const pkgType = btn.dataset.package;
-        let price = 0;
-
-        if (pkgType === 'gold') price = 50;
-        else if (pkgType === 'king') price = 100;
-        else if (pkgType === 'lord') price = 500;
-        else if (pkgType === 'vip') price = 750;
-
-        // Apply VIP discount (25%) on Gold and King
-        if (player.hasVIPPackage && (pkgType === 'gold' || pkgType === 'king')) {
-            price *= 0.75;
-            alert(`VIP İNDİRİMİ UYGULANDI! Yeni Fiyat: ${price.toFixed(2)} TL`);
+        // Check if player has enough points for their weapon
+        if (totalPoints < player.weapon.cost) {
+            alert("Bu silah için yeterli puanın yok!");
+            return;
         }
 
-        if (pkgType === 'gold') {
-            player.hasGoldPackage = true;
-            alert(`${pkgName} AKTİF! Artık BIÇAK kullanabilirsin.`);
-        } else if (pkgType === 'king') {
-            player.hasKingPackage = true;
-            alert(`${pkgName} AKTİF! Artık BOMBA kullanabilirsin.`);
-        } else if (pkgType === 'lord') {
-            player.hasLordPackage = true;
-            alert(`${pkgName} AKTİF! Efsanevi güçlerin ve AK-47 hazır!`);
-        } else if (pkgType === 'vip') {
-            player.hasVIPPackage = true;
-            alert(`${pkgName} AKTİF! Artık indirimlerden ve VIP haritadan yararlanabilirsin.`);
+        if (player.hasLordPackage || player.hasVIPPackage) {
+            // Show map choice
+            startBtn.classList.add('hidden');
+            document.getElementById('map-selection').classList.remove('hidden');
         } else {
-            alert(`${pkgName} satın alma sistemi şu an bakımda! Lütfen daha sonra tekrar deneyiniz.`);
-        }
-        updateHUD();
-    };
-});
-
-// Class Selection Logic
-document.querySelectorAll('.class-btn').forEach(btn => {
-    btn.onclick = () => {
-        const type = btn.dataset.class;
-        const weapon = WEAPONS[type];
-
-        if (totalPoints >= weapon.cost) {
-            selectedClass = type;
-            player.weapon = weapon;
-            player.speed = weapon.playerSpeed;
-
-            document.querySelectorAll('.class-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-        } else {
-            alert(`Bu sınıfı açmak için ${weapon.cost} puan gerekiyor! Şuan ${totalPoints} puanın var.`);
+            selectedMap = 'NORMAL';
+            startGame();
         }
     };
-});
 
-
-function useKnife() {
-    if (!gameRunning || player.isDead) return;
-    const hasEffect = player.hasGoldPackage || (goldTrial > 0) || player.hasLordPackage;
-    if (!hasEffect) return;
-
-    const now = Date.now();
-    if (now - lastKnifeTime < 1000) return;
-    lastKnifeTime = now;
-    player.swingProgress = 0.01;
-
-    entities.forEach(bot => {
-        if (bot.isDead || bot.shieldTimer > 0) return;
-        const dx = bot.x - player.x;
-        const dy = bot.y - player.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 100 + bot.radius) {
-            let dmg = 100;
-            if (player.hasLordPackage) dmg *= 1.5; // Damage boost
-
-            bot.health -= dmg;
-            if (bot.health <= 0) {
-                bot.health = 0;
-                bot.isDead = true;
-                bot.respawnTimer = 10000;
-                kills++;
-                updateHUD();
-                checkTeamEliminated(bot.teamId);
-            }
-        }
+    document.querySelectorAll('.map-btn').forEach(btn => {
+        btn.onclick = () => {
+            selectedMap = btn.dataset.map;
+            document.getElementById('map-selection').classList.add('hidden');
+            document.getElementById('start-btn').classList.remove('hidden');
+            startGame();
+        };
     });
-}
 
-function useBomb() {
-    if (!gameRunning || player.isDead) return;
-    if (!player.hasKingPackage && !player.hasLordPackage) return;
-    const now = Date.now();
-    if (now - lastBombTime < 3000) return;
-    lastBombTime = now;
-    const b = new Bomb(player.x, player.y, player.angle, TEAMS[player.teamId].color, 'player', player.teamId);
-    bombs.push(b);
-}
-
-function useRocket() {
-    if (!gameRunning || player.isDead || !player.hasLordPackage) return;
-    const now = Date.now();
-    const fireRate = 1200; // Fast rockets
-    if (now - lastShootTime < fireRate) return;
-    lastShootTime = now;
-    const r = new Rocket(player.x, player.y, player.angle, TEAMS[player.teamId].color, 'player', player.teamId);
-    rockets.push(r);
-}
-
-// Knife Attack Logic (Right Click Shortcut)
-window.addEventListener('contextmenu', e => {
-    e.preventDefault();
-    useKnife();
-});
-
-// Bomb Throw Logic (G Shortcut)
-window.addEventListener('keydown', e => {
-    if (e.key.toLowerCase() === 'g') {
-        useBomb();
-    }
-});
-
-window.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return; // Only Left Click
-    if (!gameRunning || player.isDead) return;
-
-    if (player.currentSlot === 1) {
-        let weapon = player.weapon;
-        if (player.hasLordPackage) {
-            weapon = WEAPONS.AK47; // Forced AK47 boost
+    function startGame() {
+        // Security check: Force Normal Map if not eligible
+        if (!(player.hasLordPackage || player.hasVIPPackage)) {
+            selectedMap = 'NORMAL';
         }
+
+        menuOverlay.classList.add('hidden');
+        gameRunning = true;
+        initAudio();
+        player.shieldTimer = 3000; // Initial shield
+        lastTime = 0;
+
+        // Decrement Gold Trial if used
+        if (goldTrial > 0 && !player.hasGoldPackage) {
+            goldTrial--;
+            localStorage.setItem('goldTrial', goldTrial);
+        }
+
+        updateHUD();
+        requestAnimationFrame(loop);
+    }
+
+    const emperorBtn = document.getElementById('emperor-btn');
+    const emperorModal = document.getElementById('emperor-modal');
+    const closeBtn = document.querySelector('.close-btn');
+
+    if (emperorBtn && emperorModal) {
+        emperorBtn.onclick = () => {
+            emperorModal.classList.remove('hidden');
+        };
+    }
+
+    // Final Robust Close Modal Logic
+    const finalCloseBtn = document.getElementById('close-modal');
+    if (finalCloseBtn) {
+        finalCloseBtn.onclick = () => {
+            if (emperorModal) emperorModal.classList.add('hidden');
+        };
+    }
+
+    window.onclick = (event) => {
+        if (event.target == emperorModal) {
+            emperorModal.classList.add('hidden');
+        }
+    };
+
+    document.querySelectorAll('.buy-btn').forEach(btn => {
+        btn.onclick = () => {
+            const pkgName = btn.parentElement.querySelector('h3').innerText;
+            const pkgType = btn.dataset.package;
+            let price = 0;
+
+            if (pkgType === 'gold') price = 50;
+            else if (pkgType === 'king') price = 100;
+            else if (pkgType === 'lord') price = 500;
+            else if (pkgType === 'vip') price = 750;
+
+            // Apply VIP discount (25%) on Gold and King
+            if (player.hasVIPPackage && (pkgType === 'gold' || pkgType === 'king')) {
+                price *= 0.75;
+                alert(`VIP İNDİRİMİ UYGULANDI! Yeni Fiyat: ${price.toFixed(2)} TL`);
+            }
+
+            if (pkgType === 'gold') {
+                player.hasGoldPackage = true;
+                alert(`${pkgName} AKTİF! Artık BIÇAK kullanabilirsin.`);
+            } else if (pkgType === 'king') {
+                player.hasKingPackage = true;
+                alert(`${pkgName} AKTİF! Artık BOMBA kullanabilirsin.`);
+            } else if (pkgType === 'lord') {
+                player.hasLordPackage = true;
+                alert(`${pkgName} AKTİF! Efsanevi güçlerin ve AK-47 hazır!`);
+            } else if (pkgType === 'vip') {
+                player.hasVIPPackage = true;
+                alert(`${pkgName} AKTİF! Artık indirimlerden ve VIP haritadan yararlanabilirsin.`);
+            } else {
+                alert(`${pkgName} satın alma sistemi şu an bakımda! Lütfen daha sonra tekrar deneyiniz.`);
+            }
+            updateHUD();
+        };
+    });
+
+    // Class Selection Logic
+    document.querySelectorAll('.class-btn').forEach(btn => {
+        btn.onclick = () => {
+            const type = btn.dataset.class;
+            const weapon = WEAPONS[type];
+
+            if (totalPoints >= weapon.cost) {
+                selectedClass = type;
+                player.weapon = weapon;
+                player.speed = weapon.playerSpeed;
+
+                document.querySelectorAll('.class-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            } else {
+                alert(`Bu sınıfı açmak için ${weapon.cost} puan gerekiyor! Şuan ${totalPoints} puanın var.`);
+            }
+        };
+    });
+
+
+    function useKnife() {
+        if (!gameRunning || player.isDead) return;
+        const hasEffect = player.hasGoldPackage || (goldTrial > 0) || player.hasLordPackage;
+        if (!hasEffect) return;
 
         const now = Date.now();
-        if (now - lastShootTime >= weapon.fireRate) {
-            let dmg = weapon.damage;
-            if (player.hasLordPackage) dmg *= 1.5; // Damage boost
+        if (now - lastKnifeTime < 1000) return;
+        lastKnifeTime = now;
+        player.swingProgress = 0.01;
 
-            const b = new Bullet(
-                player.x,
-                player.y,
-                player.angle,
-                TEAMS[player.teamId].color,
-                'player',
-                player.teamId,
-                dmg,
-                weapon.bulletSpeed
-            );
-            bullets.push(b);
-            playSound(400 + Math.random() * 100, 'square', 0.05, 0.05, false); // Shoot sound
-            lastShootTime = now;
-        }
-    } else if (player.currentSlot === 2) {
-        useKnife();
-    } else if (player.currentSlot === 3) {
-        useBomb();
-    } else if (player.currentSlot === 4) {
-        useRocket();
+        entities.forEach(bot => {
+            if (bot.isDead || bot.shieldTimer > 0) return;
+            const dx = bot.x - player.x;
+            const dy = bot.y - player.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 100 + bot.radius) {
+                let dmg = 100;
+                if (player.hasLordPackage) dmg *= 1.5; // Damage boost
+
+                bot.health -= dmg;
+                if (bot.health <= 0) {
+                    bot.health = 0;
+                    bot.isDead = true;
+                    bot.respawnTimer = 10000;
+                    kills++;
+                    updateHUD();
+                    checkTeamEliminated(bot.teamId);
+                }
+            }
+        });
     }
-});
+
+    function useBomb() {
+        if (!gameRunning || player.isDead) return;
+        if (!player.hasKingPackage && !player.hasLordPackage) return;
+        const now = Date.now();
+        if (now - lastBombTime < 3000) return;
+        lastBombTime = now;
+        const b = new Bomb(player.x, player.y, player.angle, TEAMS[player.teamId].color, 'player', player.teamId);
+        bombs.push(b);
+    }
+
+    function useRocket() {
+        if (!gameRunning || player.isDead || !player.hasLordPackage) return;
+        const now = Date.now();
+        const fireRate = 1200; // Fast rockets
+        if (now - lastShootTime < fireRate) return;
+        lastShootTime = now;
+        const r = new Rocket(player.x, player.y, player.angle, TEAMS[player.teamId].color, 'player', player.teamId);
+        rockets.push(r);
+    }
+
+    // Knife Attack Logic (Right Click Shortcut)
+    window.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        useKnife();
+    });
+
+    // Bomb Throw Logic (G Shortcut)
+    window.addEventListener('keydown', e => {
+        if (e.key.toLowerCase() === 'g') {
+            useBomb();
+        }
+    });
+
+    window.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return; // Only Left Click
+        if (!gameRunning || player.isDead) return;
+
+        if (player.currentSlot === 1) {
+            let weapon = player.weapon;
+            if (player.hasLordPackage) {
+                weapon = WEAPONS.AK47; // Forced AK47 boost
+            }
+
+            const now = Date.now();
+            if (now - lastShootTime >= weapon.fireRate) {
+                let dmg = weapon.damage;
+                if (player.hasLordPackage) dmg *= 1.5; // Damage boost
+
+                const b = new Bullet(
+                    player.x,
+                    player.y,
+                    player.angle,
+                    TEAMS[player.teamId].color,
+                    'player',
+                    player.teamId,
+                    dmg,
+                    weapon.bulletSpeed
+                );
+                bullets.push(b);
+                playSound(400 + Math.random() * 100, 'square', 0.05, 0.05, false); // Shoot sound
+                lastShootTime = now;
+            }
+        } else if (player.currentSlot === 2) {
+            useKnife();
+        } else if (player.currentSlot === 3) {
+            useBomb();
+        } else if (player.currentSlot === 4) {
+            useRocket();
+        }
+    });
 
 
-window.onbeforeunload = () => {
-    recordLeave();
-};
+    window.onbeforeunload = () => {
+        recordLeave();
+    };
 
-requestAnimationFrame(loop);
-updateHUD(); // Initial HUD update to show points and locks
+    requestAnimationFrame(loop);
+    updateHUD(); // Initial HUD update to show points and locks
