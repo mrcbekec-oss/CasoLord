@@ -43,6 +43,10 @@ canvas {
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9);
 }
 
+.hidden {
+    display: none !important;
+}
+
 /* Modal UI */
 .modal {
     position: fixed;
@@ -75,7 +79,7 @@ canvas {
     position: absolute;
     top: 20px;
     right: 25px;
-    font-size: 2.5rem;
+    font-size: 3.5rem;
     cursor: pointer;
     color: #fff;
     opacity: 0.6;
