@@ -905,6 +905,21 @@ function update(deltaTime) {
         }
     });
 
+    // Player Respawn Logic
+    if (player.isDead) {
+        player.respawnTimer -= deltaTime;
+        if (player.respawnTimer <= 0 && !TEAMS[player.teamId].isEliminated) {
+            player.isDead = false;
+            player.health = player.maxHealth;
+            const spawnPos = getRandomSafePosition(player.radius);
+            player.x = spawnPos.x;
+            player.y = spawnPos.y;
+            player.shieldTimer = 3000; // Shield on respawn
+        }
+    } else {
+        if (player.shieldTimer > 0) player.shieldTimer -= deltaTime;
+    }
+
     // Player move
     if (!player.isDead) {
         const speed = player.weapon.playerSpeed;
