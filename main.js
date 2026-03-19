@@ -11,15 +11,19 @@ let gameRunning = false;
 let kills = 0;
 let lastTime = 0;
 
-// Ban System (30 Minutes)
+// Ban System (5 Strikes = 30 Minutes Ban)
 function checkBan() {
     const banUntil = localStorage.getItem('banUntil');
     if (banUntil) {
         const remaining = parseInt(banUntil) - Date.now();
         if (remaining > 0) {
             const minutes = Math.ceil(remaining / 60000);
-            alert(`MAÇTAN AYRILDIĞIN İÇİN ${minutes} DAKİKA CEZALISIN!`);
+            alert(`MAÇTAN ÇOK FAZLA ÇIKTIĞIN İÇİN ${minutes} DAKİKA CEZALISIN!`);
             return true;
+        } else {
+            // Ban expired, reset strikes
+            localStorage.removeItem('banUntil');
+            localStorage.setItem('leaveCount', '0');
         }
     }
     return false;
@@ -27,9 +31,19 @@ function checkBan() {
 
 function recordLeave() {
     if (!gameRunning) return;
-    const banTime = Date.now() + (30 * 60 * 1000); // 30 minutes
-    localStorage.setItem('banUntil', banTime);
-    alert("Maçtan ayrıldın! 30 dakika boyunca yeni oyun açamazsın.");
+
+    let leaveCount = parseInt(localStorage.getItem('leaveCount') || '0');
+    leaveCount++;
+    localStorage.setItem('leaveCount', leaveCount.toString());
+
+    if (leaveCount >= 5) {
+        const banTime = Date.now() + (30 * 60 * 1000); // 30 minutes
+        localStorage.setItem('banUntil', banTime);
+        localStorage.setItem('leaveCount', '0'); // Reset after ban is applied
+        alert("Üst üste 5 kez maçtan ayrıldın! 30 dakika boyunca yeni oyun açamazsın.");
+    } else {
+        alert(`Maçtan ayrıldın! (Uyarı: ${leaveCount}/5). 5 olunca 30 dakika ban yersin.`);
+    }
 }
 
 // Visual & Audio State
