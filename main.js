@@ -1111,15 +1111,14 @@ function draw() {
         ctx.translate(canvas.width / 2, canvas.height / 2);
         ctx.rotate(player.angle);
 
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = TEAMS[player.teamId].color;
+        ctx.shadowBlur = 0;
         ctx.fillStyle = TEAMS[player.teamId].color;
 
         ctx.beginPath();
         ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         ctx.stroke();
 
         // 🛡️ Pulse Shield Effect
@@ -1251,6 +1250,7 @@ function gameOver() {
 }
 
 function loop(time) {
+    if (lastTime === 0) lastTime = time;
     const deltaTime = time - lastTime;
     lastTime = time;
 
@@ -1311,7 +1311,7 @@ function startGame() {
     gameRunning = true;
     initAudio();
     player.shieldTimer = 3000; // Initial shield
-    lastTime = Date.now();
+    lastTime = 0;
 
     // Decrement Gold Trial if used
     if (goldTrial > 0 && !player.hasGoldPackage) {
