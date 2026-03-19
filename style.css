@@ -241,6 +241,7 @@ canvas {
     letter-spacing: 5px;
     background: linear-gradient(90deg, var(--accent-red), #fff);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
     text-shadow: 0 0 15px rgba(255, 62, 62, 0.4);
 }
@@ -363,6 +364,7 @@ canvas {
     margin-bottom: 15px;
     background: linear-gradient(180deg, #fff, var(--accent-red));
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
     text-shadow: 0 0 30px rgba(255, 62, 62, 0.4);
 }
