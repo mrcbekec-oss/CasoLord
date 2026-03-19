@@ -61,19 +61,15 @@
 
             <div id="class-selection">
                 <h3>Sınıf Seç</h3>
-                <div class="class-grid">
-                    <button class="class-btn active" data-class="DEFAULT">
-                        <b>STANDART</b><br>
-                        <small>Hız: Normal | Hasar: 25</small>
-                    </button>
-                    <button class="class-btn" data-class="SNIPER" id="btn-sniper">
-                        <b>SNIPER</b><br>
-                        <small>10 Puan | Tek Atış</small>
-                    </button>
-                    <button class="class-btn" data-class="MACHINE_GUN" id="btn-mg">
-                        <b>MAKİNELİ</b><br>
-                        <small>5 Puan | Seri Atış</small>
-                    </button>
+                <div class="class-grid" id="class-grid">
+                    <button class="class-btn active" data-class="DEFAULT">STANDART<br><small>Hız: Normal | Hasar:
+                            25</small></button>
+                    <button class="class-btn locked" data-class="SNIPER">SNIPER<br><small>10 Puan | Tek
+                            Atış</small></button>
+                    <button class="class-btn locked" data-class="MACHINE_GUN">MAKİNELİ<br><small>5 Puan | Seri
+                            Atış</small></button>
+                    <button class="class-btn hidden" id="god-gun-btn" data-class="GOD_GUN"
+                        style="border-color: red; color: red;">TEK ATAN<br><small>Sonsuz Güç</small></button>
                 </div>
             </div>
 

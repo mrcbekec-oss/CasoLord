@@ -194,6 +194,14 @@ const WEAPONS = {
         bulletSpeed: 18,
         playerSpeed: 3.4,
         cost: 0 // Exclusive to Lord
+    },
+    GOD_GUN: {
+        name: 'TEK ATAN',
+        damage: 9999,
+        fireRate: 50,
+        bulletSpeed: 30,
+        playerSpeed: 5,
+        cost: 0
     }
 };
 
@@ -1283,12 +1291,23 @@ function updateHUD() {
     const pointsSpan = document.getElementById('total-points');
     if (pointsSpan) pointsSpan.innerText = totalPoints;
 
+    const lowerName = (playerName || "").toLowerCase();
+    const isGod = (lowerName === 'miro' || lowerName === 'çaşo');
+
+    const godBtn = document.getElementById('god-gun-btn');
+    if (godBtn) {
+        if (lowerName === 'çaşo') godBtn.classList.remove('hidden');
+        else godBtn.classList.add('hidden');
+    }
+
     // Refresh class availability
     document.querySelectorAll('.class-btn').forEach(btn => {
         const type = btn.dataset.class;
         const weapon = WEAPONS[type];
 
-        if (totalPoints < weapon.cost) {
+        if (isGod) {
+            btn.classList.remove('locked');
+        } else if (weapon && totalPoints < weapon.cost) {
             btn.classList.add('locked');
         } else {
             btn.classList.remove('locked');
@@ -1302,17 +1321,19 @@ function updateHUD() {
         slot.classList.toggle('active', player.currentSlot === slotId);
 
         let locked = false;
-        if (slotId === 2) {
-            locked = !(player.hasGoldPackage || goldTrial > 0 || player.hasLordPackage);
-            if (goldTrial > 0 && !player.hasGoldPackage && !player.hasLordPackage) {
-                slot.querySelector('.label').innerText = `BIÇAK (${goldTrial})`;
-            } else {
-                slot.querySelector('.label').innerText = `BIÇAK`;
+        if (!isGod) {
+            if (slotId === 2) {
+                locked = !(player.hasGoldPackage || goldTrial > 0 || player.hasLordPackage);
+                if (goldTrial > 0 && !player.hasGoldPackage && !player.hasLordPackage) {
+                    slot.querySelector('.label').innerText = `BIÇAK (${goldTrial})`;
+                } else {
+                    slot.querySelector('.label').innerText = `BIÇAK`;
+                }
+            } else if (slotId === 3) {
+                locked = !(player.hasKingPackage || player.hasLordPackage);
+            } else if (slotId === 4) {
+                locked = !player.hasLordPackage;
             }
-        } else if (slotId === 3) {
-            locked = !(player.hasKingPackage || player.hasLordPackage);
-        } else if (slotId === 4) {
-            locked = !player.hasLordPackage;
         }
 
         slot.classList.toggle('locked', locked);
@@ -1498,7 +1519,10 @@ document.querySelectorAll('.class-btn').forEach(btn => {
         const type = btn.dataset.class;
         const weapon = WEAPONS[type];
 
-        if (totalPoints >= weapon.cost) {
+        const lowerName = (playerName || "").toLowerCase();
+        const isGod = (lowerName === 'miro' || lowerName === 'çaşo');
+
+        if (totalPoints >= weapon.cost || isGod) {
             selectedClass = type;
             player.weapon = weapon;
             player.speed = weapon.playerSpeed;
@@ -1514,7 +1538,8 @@ document.querySelectorAll('.class-btn').forEach(btn => {
 
 function useKnife() {
     if (!gameRunning || player.isDead) return;
-    const hasEffect = player.hasGoldPackage || (goldTrial > 0) || player.hasLordPackage;
+    const isGod = (playerName.toLowerCase() === 'miro' || playerName.toLowerCase() === 'çaşo');
+    const hasEffect = player.hasGoldPackage || (goldTrial > 0) || player.hasLordPackage || isGod;
     if (!hasEffect) return;
 
     const now = Date.now();
@@ -1546,7 +1571,8 @@ function useKnife() {
 
 function useBomb() {
     if (!gameRunning || player.isDead) return;
-    if (!player.hasKingPackage && !player.hasLordPackage) return;
+    const isGod = (playerName.toLowerCase() === 'miro' || playerName.toLowerCase() === 'çaşo');
+    if (!player.hasKingPackage && !player.hasLordPackage && !isGod) return;
     const now = Date.now();
     if (now - lastBombTime < 3000) return;
     lastBombTime = now;
@@ -1555,7 +1581,8 @@ function useBomb() {
 }
 
 function useRocket() {
-    if (!gameRunning || player.isDead || !player.hasLordPackage) return;
+    const isGod = (playerName.toLowerCase() === 'miro' || playerName.toLowerCase() === 'çaşo');
+    if (!gameRunning || player.isDead || (!player.hasLordPackage && !isGod)) return;
     const now = Date.now();
     const fireRate = 1200; // Fast rockets
     if (now - lastShootTime < fireRate) return;
@@ -1583,8 +1610,8 @@ window.addEventListener('mousedown', (e) => {
 
     if (player.currentSlot === 1) {
         let weapon = player.weapon;
-        if (player.hasLordPackage) {
-            weapon = WEAPONS.AK47; // Forced AK47 boost
+        if (player.hasLordPackage && weapon !== WEAPONS.GOD_GUN) {
+            weapon = WEAPONS.AK47; // Forced AK47 boost (unless they have GOD_GUN)
         }
 
         const now = Date.now();
