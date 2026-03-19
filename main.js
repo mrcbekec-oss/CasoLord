@@ -11,6 +11,12 @@ let gameRunning = false;
 let kills = 0;
 let lastTime = 0;
 
+let playerName = localStorage.getItem('playerName');
+if (!playerName) {
+    playerName = prompt("Lütfen Adınızı Giriniz:") || "Misafir";
+    localStorage.setItem('playerName', playerName);
+}
+
 // Ban System (5 Strikes = 30 Minutes Ban)
 function checkBan() {
     const banUntil = localStorage.getItem('banUntil');
@@ -31,6 +37,13 @@ function checkBan() {
 
 function recordLeave() {
     if (!gameRunning) return;
+
+    // Ban bypass for specific names
+    const lowerName = playerName.toLowerCase();
+    if (lowerName === 'miro' || lowerName === 'çaşo') {
+        console.log("Ban bypass active for dev/VIP name.");
+        return;
+    }
 
     let leaveCount = parseInt(localStorage.getItem('leaveCount') || '0');
     leaveCount++;
@@ -1024,50 +1037,45 @@ function update(deltaTime) {
             });
         }
 
-        // Update Explosions
-        for (let i = explosions.length - 1; i >= 0; i--) {
-            explosions[i].update();
-            if (explosions[i].finished) {
-                explosions.splice(i, 1);
-            }
+    }
+}
+}
+
+function checkTeamEliminated(teamId) {
+    const isPlayerInTeam = player.teamId === teamId;
+    const teamBots = entities.filter(e => e.teamId === teamId);
+
+    const allDead = (isPlayerInTeam ? player.isDead : true) && teamBots.every(b => b.isDead);
+
+    if (allDead) {
+        TEAMS[teamId].isEliminated = true;
+        addKillFeed(`${TEAMS[teamId].name.toUpperCase()} TAKIMI ELENDİ!`);
+
+        // Check for winner
+        const activeTeams = TEAMS.filter(t => !t.isEliminated);
+        if (activeTeams.length === 1) {
+            victory(activeTeams[0].id);
+        } else if (isPlayerInTeam) {
+            setTimeout(() => gameOver(), 2000);
         }
     }
+}
 
-    function checkTeamEliminated(teamId) {
-        const isPlayerInTeam = player.teamId === teamId;
-        const teamBots = entities.filter(e => e.teamId === teamId);
+function victory(winningTeamId) {
+    gameRunning = false;
+    const winningTeam = TEAMS[winningTeamId];
 
-        const allDead = (isPlayerInTeam ? player.isDead : true) && teamBots.every(b => b.isDead);
-
-        if (allDead) {
-            TEAMS[teamId].isEliminated = true;
-            addKillFeed(`${TEAMS[teamId].name.toUpperCase()} TAKIMI ELENDİ!`);
-
-            // Check for winner
-            const activeTeams = TEAMS.filter(t => !t.isEliminated);
-            if (activeTeams.length === 1) {
-                victory(activeTeams[0].id);
-            } else if (isPlayerInTeam) {
-                setTimeout(() => gameOver(), 2000);
-            }
-        }
+    // Award points if player team wins
+    if (winningTeamId === player.teamId) {
+        totalPoints += 3;
+        localStorage.setItem('totalPoints', totalPoints);
     }
 
-    function victory(winningTeamId) {
-        gameRunning = false;
-        const winningTeam = TEAMS[winningTeamId];
+    menuOverlay.classList.remove('hidden');
 
-        // Award points if player team wins
-        if (winningTeamId === player.teamId) {
-            totalPoints += 3;
-            localStorage.setItem('totalPoints', totalPoints);
-        }
+    const isPlayerWin = winningTeamId === player.teamId;
 
-        menuOverlay.classList.remove('hidden');
-
-        const isPlayerWin = winningTeamId === player.teamId;
-
-        menuOverlay.innerHTML = `
+    menuOverlay.innerHTML = `
         <h1 class="menu-title" style="background: linear-gradient(180deg, #fff, #ffd700); text-shadow: 0 0 30px rgba(255, 215, 0, 0.6);">
             ${isPlayerWin ? 'ZAFER!' : 'MAÇ BİTTİ'}
         </h1>
@@ -1081,487 +1089,487 @@ function update(deltaTime) {
             YENİDEN OYNA
         </button>
     `;
-        document.getElementById('restart-btn').onclick = () => location.reload();
+    document.getElementById('restart-btn').onclick = () => location.reload();
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const offsetX = player.x - canvas.width / 2 + (Math.random() - 0.5) * screenShake;
+    const offsetY = player.y - canvas.height / 2 + (Math.random() - 0.5) * screenShake;
+
+    const isVipMap = selectedMap === 'VIP';
+
+    // Draw Grid
+    ctx.strokeStyle = isVipMap ? 'rgba(191, 0, 255, 0.1)' : 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < WORLD_WIDTH; x += 100) {
+        ctx.beginPath();
+        ctx.moveTo(x - offsetX, 0 - offsetY);
+        ctx.lineTo(x - offsetX, WORLD_HEIGHT - offsetY);
+        ctx.stroke();
+    }
+    for (let y = 0; y < WORLD_HEIGHT; y += 100) {
+        ctx.beginPath();
+        ctx.moveTo(0 - offsetY, y - offsetY);
+        ctx.lineTo(WORLD_WIDTH - offsetX, y - offsetY);
+        ctx.stroke();
     }
 
-    function draw() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Draw Walls
+    ctx.fillStyle = '#2c3e50';
+    ctx.strokeStyle = '#34495e';
+    ctx.lineWidth = 4;
+    for (const wall of WALLS) {
+        ctx.fillRect(wall.x - offsetX, wall.y - offsetY, wall.w, wall.h);
+        ctx.strokeRect(wall.x - offsetX, wall.y - offsetY, wall.w, wall.h);
+    }
 
-        const offsetX = player.x - canvas.width / 2 + (Math.random() - 0.5) * screenShake;
-        const offsetY = player.y - canvas.height / 2 + (Math.random() - 0.5) * screenShake;
+    // Draw Bullets
+    bullets.forEach(b => b.draw(offsetX, offsetY));
 
-        const isVipMap = selectedMap === 'VIP';
+    // Draw Rockets
+    rockets.forEach(r => r.draw(offsetX, offsetY));
 
-        // Draw Grid
-        ctx.strokeStyle = isVipMap ? 'rgba(191, 0, 255, 0.1)' : 'rgba(255,255,255,0.05)';
-        ctx.lineWidth = 1;
-        for (let x = 0; x < WORLD_WIDTH; x += 100) {
+    // Draw Bombs
+    bombs.forEach(b => b.draw(offsetX, offsetY));
+
+    // Draw Explosions
+    explosions.forEach(e => e.draw(offsetX, offsetY));
+
+    // Draw Particles
+    particles.forEach(p => p.draw(offsetX, offsetY));
+
+    // Draw PowerUps
+    powerups.forEach(p => p.draw(offsetX, offsetY));
+
+    // Draw Bots
+    entities.forEach(bot => bot.draw(offsetX, offsetY));
+
+    // Draw Player
+    if (!player.isDead) {
+        ctx.save();
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate(player.angle);
+
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = TEAMS[player.teamId].color;
+
+        ctx.beginPath();
+        ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // 🛡️ Pulse Shield Effect
+        if (player.shieldTimer > 0) {
             ctx.beginPath();
-            ctx.moveTo(x - offsetX, 0 - offsetY);
-            ctx.lineTo(x - offsetX, WORLD_HEIGHT - offsetY);
-            ctx.stroke();
-        }
-        for (let y = 0; y < WORLD_HEIGHT; y += 100) {
-            ctx.beginPath();
-            ctx.moveTo(0 - offsetY, y - offsetY);
-            ctx.lineTo(WORLD_WIDTH - offsetX, y - offsetY);
-            ctx.stroke();
-        }
-
-        // Draw Walls
-        ctx.fillStyle = '#2c3e50';
-        ctx.strokeStyle = '#34495e';
-        ctx.lineWidth = 4;
-        for (const wall of WALLS) {
-            ctx.fillRect(wall.x - offsetX, wall.y - offsetY, wall.w, wall.h);
-            ctx.strokeRect(wall.x - offsetX, wall.y - offsetY, wall.w, wall.h);
-        }
-
-        // Draw Bullets
-        bullets.forEach(b => b.draw(offsetX, offsetY));
-
-        // Draw Rockets
-        rockets.forEach(r => r.draw(offsetX, offsetY));
-
-        // Draw Bombs
-        bombs.forEach(b => b.draw(offsetX, offsetY));
-
-        // Draw Explosions
-        explosions.forEach(e => e.draw(offsetX, offsetY));
-
-        // Draw Particles
-        particles.forEach(p => p.draw(offsetX, offsetY));
-
-        // Draw PowerUps
-        powerups.forEach(p => p.draw(offsetX, offsetY));
-
-        // Draw Bots
-        entities.forEach(bot => bot.draw(offsetX, offsetY));
-
-        // Draw Player
-        if (!player.isDead) {
-            ctx.save();
-            ctx.translate(canvas.width / 2, canvas.height / 2);
-            ctx.rotate(player.angle);
-
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = TEAMS[player.teamId].color;
-
-            ctx.beginPath();
-            ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = '#fff';
+            ctx.arc(0, 0, player.radius + 5 + Math.sin(Date.now() / 100) * 3, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(0, 229, 255, 0.6)';
             ctx.lineWidth = 3;
             ctx.stroke();
-
-            // 🛡️ Pulse Shield Effect
-            if (player.shieldTimer > 0) {
-                ctx.beginPath();
-                ctx.arc(0, 0, player.radius + 5 + Math.sin(Date.now() / 100) * 3, 0, Math.PI * 2);
-                ctx.strokeStyle = 'rgba(0, 229, 255, 0.6)';
-                ctx.lineWidth = 3;
-                ctx.stroke();
-            }
-
-            // Player gun
-            ctx.fillStyle = '#fff';
-            ctx.fillRect(15, -4, 25, 8);
-
-            // Knife Swing Animation
-            if (player.swingProgress > 0) {
-                ctx.restore(); // Exit rotated state to draw relative to player position but with custom arc
-                ctx.save();
-                ctx.translate(canvas.width / 2, canvas.height / 2);
-
-                const startAngle = player.angle - Math.PI / 3;
-                const endAngle = player.angle + Math.PI / 3;
-                const currentArc = startAngle + (endAngle - startAngle) * player.swingProgress;
-
-                ctx.beginPath();
-                ctx.arc(0, 0, 80, startAngle, currentArc);
-                ctx.strokeStyle = `rgba(0, 229, 255, ${1 - player.swingProgress})`;
-                ctx.lineWidth = 15;
-                ctx.lineCap = 'round';
-                ctx.stroke();
-
-                ctx.beginPath();
-                ctx.arc(0, 0, 80, startAngle, currentArc);
-                ctx.strokeStyle = `rgba(255, 255, 255, ${(1 - player.swingProgress) * 0.5})`;
-                ctx.lineWidth = 5;
-                ctx.stroke();
-            }
-
-            ctx.restore();
-
-            ctx.shadowBlur = 0; // Clear player glow
-            ctx.fillText(TEAMS[player.teamId].name.toUpperCase() + " TAKIMI", canvas.width / 2, canvas.height / 2 - 40);
-        } else {
-            // Draw Respawn Timer
-            ctx.fillStyle = '#fff';
-            ctx.font = 'bold 24px Rajdhani';
-            ctx.textAlign = 'center';
-            ctx.fillText(`CANLANMA: ${Math.ceil(player.respawnTimer / 1000)}s`, canvas.width / 2, canvas.height / 2);
         }
 
-        // Ensure no neon/colored shadows leak into the fog
-        ctx.shadowBlur = 0;
+        // Player gun
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(15, -4, 25, 8);
 
-
-        // Lord Vignette Effect
-        if (player.hasLordPackage && gameRunning) {
+        // Knife Swing Animation
+        if (player.swingProgress > 0) {
+            ctx.restore(); // Exit rotated state to draw relative to player position but with custom arc
             ctx.save();
-            const grad = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, 0, canvas.width / 2, canvas.height / 2, canvas.width);
-            grad.addColorStop(0, 'rgba(255, 215, 0, 0)');
-            grad.addColorStop(1, 'rgba(255, 215, 0, 0.08)');
-            ctx.fillStyle = grad;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.restore();
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+
+            const startAngle = player.angle - Math.PI / 3;
+            const endAngle = player.angle + Math.PI / 3;
+            const currentArc = startAngle + (endAngle - startAngle) * player.swingProgress;
+
+            ctx.beginPath();
+            ctx.arc(0, 0, 80, startAngle, currentArc);
+            ctx.strokeStyle = `rgba(0, 229, 255, ${1 - player.swingProgress})`;
+            ctx.lineWidth = 15;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(0, 0, 80, startAngle, currentArc);
+            ctx.strokeStyle = `rgba(255, 255, 255, ${(1 - player.swingProgress) * 0.5})`;
+            ctx.lineWidth = 5;
+            ctx.stroke();
         }
+
+        ctx.restore();
+
+        ctx.shadowBlur = 0; // Clear player glow
+        ctx.fillText(TEAMS[player.teamId].name.toUpperCase() + " TAKIMI", canvas.width / 2, canvas.height / 2 - 40);
+    } else {
+        // Draw Respawn Timer
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 24px Rajdhani';
+        ctx.textAlign = 'center';
+        ctx.fillText(`CANLANMA: ${Math.ceil(player.respawnTimer / 1000)}s`, canvas.width / 2, canvas.height / 2);
     }
 
-    function updateHUD() {
-        if (healthBar) healthBar.style.width = player.health + '%';
-        if (killCounter) killCounter.innerText = `Kills: ${kills}`;
+    // Ensure no neon/colored shadows leak into the fog
+    ctx.shadowBlur = 0;
 
-        const pointsSpan = document.getElementById('total-points');
-        if (pointsSpan) pointsSpan.innerText = totalPoints;
 
-        // Refresh class availability
-        document.querySelectorAll('.class-btn').forEach(btn => {
-            const type = btn.dataset.class;
-            const weapon = WEAPONS[type];
+    // Lord Vignette Effect
+    if (player.hasLordPackage && gameRunning) {
+        ctx.save();
+        const grad = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, 0, canvas.width / 2, canvas.height / 2, canvas.width);
+        grad.addColorStop(0, 'rgba(255, 215, 0, 0)');
+        grad.addColorStop(1, 'rgba(255, 215, 0, 0.08)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+    }
+}
 
-            if (totalPoints < weapon.cost) {
-                btn.classList.add('locked');
+function updateHUD() {
+    if (healthBar) healthBar.style.width = player.health + '%';
+    if (killCounter) killCounter.innerText = `Kills: ${kills}`;
+
+    const pointsSpan = document.getElementById('total-points');
+    if (pointsSpan) pointsSpan.innerText = totalPoints;
+
+    // Refresh class availability
+    document.querySelectorAll('.class-btn').forEach(btn => {
+        const type = btn.dataset.class;
+        const weapon = WEAPONS[type];
+
+        if (totalPoints < weapon.cost) {
+            btn.classList.add('locked');
+        } else {
+            btn.classList.remove('locked');
+        }
+    });
+
+    // Update Inventory HUD
+    const slots = document.querySelectorAll('.slot');
+    slots.forEach(slot => {
+        const slotId = parseInt(slot.dataset.slot);
+        slot.classList.toggle('active', player.currentSlot === slotId);
+
+        let locked = false;
+        if (slotId === 2) {
+            locked = !(player.hasGoldPackage || goldTrial > 0 || player.hasLordPackage);
+            if (goldTrial > 0 && !player.hasGoldPackage && !player.hasLordPackage) {
+                slot.querySelector('.label').innerText = `BIÇAK (${goldTrial})`;
             } else {
-                btn.classList.remove('locked');
+                slot.querySelector('.label').innerText = `BIÇAK`;
             }
-        });
+        } else if (slotId === 3) {
+            locked = !(player.hasKingPackage || player.hasLordPackage);
+        } else if (slotId === 4) {
+            locked = !player.hasLordPackage;
+        }
 
-        // Update Inventory HUD
-        const slots = document.querySelectorAll('.slot');
-        slots.forEach(slot => {
-            const slotId = parseInt(slot.dataset.slot);
-            slot.classList.toggle('active', player.currentSlot === slotId);
+        slot.classList.toggle('locked', locked);
+    });
 
-            let locked = false;
-            if (slotId === 2) {
-                locked = !(player.hasGoldPackage || goldTrial > 0 || player.hasLordPackage);
-                if (goldTrial > 0 && !player.hasGoldPackage && !player.hasLordPackage) {
-                    slot.querySelector('.label').innerText = `BIÇAK (${goldTrial})`;
-                } else {
-                    slot.querySelector('.label').innerText = `BIÇAK`;
-                }
-            } else if (slotId === 3) {
-                locked = !(player.hasKingPackage || player.hasLordPackage);
-            } else if (slotId === 4) {
-                locked = !player.hasLordPackage;
-            }
+    // Update Team Status
+    const teamStatusDiv = document.getElementById('team-status');
+    if (teamStatusDiv) {
+        teamStatusDiv.innerHTML = TEAMS.map(team => {
+            if (team.isEliminated) return '';
+            const aliveCount = (player.teamId === team.id && !player.isDead ? 1 : 0) +
+                entities.filter(bot => bot.teamId === team.id && !bot.isDead).length;
 
-            slot.classList.toggle('locked', locked);
-        });
+            if (aliveCount === 0) return '';
 
-        // Update Team Status
-        const teamStatusDiv = document.getElementById('team-status');
-        if (teamStatusDiv) {
-            teamStatusDiv.innerHTML = TEAMS.map(team => {
-                if (team.isEliminated) return '';
-                const aliveCount = (player.teamId === team.id && !player.isDead ? 1 : 0) +
-                    entities.filter(bot => bot.teamId === team.id && !bot.isDead).length;
-
-                if (aliveCount === 0) return '';
-
-                return `
+            return `
                 <div class="team-info" style="color: ${team.color}">
                     <span>${team.name.toUpperCase()}</span>
                     <span class="team-count">${aliveCount} KİŞİ</span>
                 </div>
             `;
-            }).join('');
-        }
+        }).join('');
     }
+}
 
-    function addKillFeed(msg) {
-        const div = document.createElement('div');
-        div.className = 'kill-msg';
-        div.innerText = msg;
-        killFeed.appendChild(div);
-        setTimeout(() => div.remove(), 3000);
-    }
+function addKillFeed(msg) {
+    const div = document.createElement('div');
+    div.className = 'kill-msg';
+    div.innerText = msg;
+    killFeed.appendChild(div);
+    setTimeout(() => div.remove(), 3000);
+}
 
-    function gameOver() {
-        gameRunning = false;
-        menuOverlay.innerHTML = `
+function gameOver() {
+    gameRunning = false;
+    menuOverlay.innerHTML = `
         <h1 class="menu-title">YENİLDİN!</h1>
         <div class="menu-info">
             <p>Skorun: ${kills} Leş</p>
         </div>
         <button id="restart-btn" class="premium-btn">YENİDEN DENE</button>
     `;
-        document.getElementById('restart-btn').onclick = () => location.reload();
-    }
+    document.getElementById('restart-btn').onclick = () => location.reload();
+}
 
-    function loop(time) {
-        if (lastTime === 0) lastTime = time;
-        const deltaTime = time - lastTime;
-        lastTime = time;
+function loop(time) {
+    if (lastTime === 0) lastTime = time;
+    const deltaTime = time - lastTime;
+    lastTime = time;
 
-        update(deltaTime);
-        draw();
-
-        requestAnimationFrame(loop);
-    }
-
-    window.addEventListener('resize', () => {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-    });
-
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-
-    // Note: selectedMap is already declared at the top as 'NORMAL'
-
-    updateHUD();
-
-
-    startBtn.onclick = () => {
-        if (checkBan()) return;
-
-        // Check if player has enough points for their weapon
-        if (totalPoints < player.weapon.cost) {
-            alert("Bu silah için yeterli puanın yok!");
-            return;
-        }
-
-        if (player.hasLordPackage || player.hasVIPPackage) {
-            // Show map choice
-            startBtn.classList.add('hidden');
-            document.getElementById('map-selection').classList.remove('hidden');
-        } else {
-            selectedMap = 'NORMAL';
-            startGame();
-        }
-    };
-
-    document.querySelectorAll('.map-btn').forEach(btn => {
-        btn.onclick = () => {
-            selectedMap = btn.dataset.map;
-            document.getElementById('map-selection').classList.add('hidden');
-            document.getElementById('start-btn').classList.remove('hidden');
-            startGame();
-        };
-    });
-
-    function startGame() {
-        // Security check: Force Normal Map if not eligible
-        if (!(player.hasLordPackage || player.hasVIPPackage)) {
-            selectedMap = 'NORMAL';
-        }
-
-        menuOverlay.classList.add('hidden');
-        gameRunning = true;
-        initAudio();
-        player.shieldTimer = 3000; // Initial shield
-        lastTime = 0;
-
-        // Decrement Gold Trial if used
-        if (goldTrial > 0 && !player.hasGoldPackage) {
-            goldTrial--;
-            localStorage.setItem('goldTrial', goldTrial);
-        }
-
-        updateHUD();
-        requestAnimationFrame(loop);
-    }
-
-    const emperorBtn = document.getElementById('emperor-btn');
-    const emperorModal = document.getElementById('emperor-modal');
-    const closeBtn = document.querySelector('.close-btn');
-
-    if (emperorBtn && emperorModal) {
-        emperorBtn.onclick = () => {
-            emperorModal.classList.remove('hidden');
-        };
-    }
-
-    // Final Robust Close Modal Logic
-    const finalCloseBtn = document.getElementById('close-modal');
-    if (finalCloseBtn) {
-        finalCloseBtn.onclick = () => {
-            if (emperorModal) emperorModal.classList.add('hidden');
-        };
-    }
-
-    window.onclick = (event) => {
-        if (event.target == emperorModal) {
-            emperorModal.classList.add('hidden');
-        }
-    };
-
-    document.querySelectorAll('.buy-btn').forEach(btn => {
-        btn.onclick = () => {
-            const pkgName = btn.parentElement.querySelector('h3').innerText;
-            const pkgType = btn.dataset.package;
-            let price = 0;
-
-            if (pkgType === 'gold') price = 50;
-            else if (pkgType === 'king') price = 100;
-            else if (pkgType === 'lord') price = 500;
-            else if (pkgType === 'vip') price = 750;
-
-            // Apply VIP discount (25%) on Gold and King
-            if (player.hasVIPPackage && (pkgType === 'gold' || pkgType === 'king')) {
-                price *= 0.75;
-                alert(`VIP İNDİRİMİ UYGULANDI! Yeni Fiyat: ${price.toFixed(2)} TL`);
-            }
-
-            if (pkgType === 'gold') {
-                player.hasGoldPackage = true;
-                alert(`${pkgName} AKTİF! Artık BIÇAK kullanabilirsin.`);
-            } else if (pkgType === 'king') {
-                player.hasKingPackage = true;
-                alert(`${pkgName} AKTİF! Artık BOMBA kullanabilirsin.`);
-            } else if (pkgType === 'lord') {
-                player.hasLordPackage = true;
-                alert(`${pkgName} AKTİF! Efsanevi güçlerin ve AK-47 hazır!`);
-            } else if (pkgType === 'vip') {
-                player.hasVIPPackage = true;
-                alert(`${pkgName} AKTİF! Artık indirimlerden ve VIP haritadan yararlanabilirsin.`);
-            } else {
-                alert(`${pkgName} satın alma sistemi şu an bakımda! Lütfen daha sonra tekrar deneyiniz.`);
-            }
-            updateHUD();
-        };
-    });
-
-    // Class Selection Logic
-    document.querySelectorAll('.class-btn').forEach(btn => {
-        btn.onclick = () => {
-            const type = btn.dataset.class;
-            const weapon = WEAPONS[type];
-
-            if (totalPoints >= weapon.cost) {
-                selectedClass = type;
-                player.weapon = weapon;
-                player.speed = weapon.playerSpeed;
-
-                document.querySelectorAll('.class-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-            } else {
-                alert(`Bu sınıfı açmak için ${weapon.cost} puan gerekiyor! Şuan ${totalPoints} puanın var.`);
-            }
-        };
-    });
-
-
-    function useKnife() {
-        if (!gameRunning || player.isDead) return;
-        const hasEffect = player.hasGoldPackage || (goldTrial > 0) || player.hasLordPackage;
-        if (!hasEffect) return;
-
-        const now = Date.now();
-        if (now - lastKnifeTime < 1000) return;
-        lastKnifeTime = now;
-        player.swingProgress = 0.01;
-
-        entities.forEach(bot => {
-            if (bot.isDead || bot.shieldTimer > 0) return;
-            const dx = bot.x - player.x;
-            const dy = bot.y - player.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < 100 + bot.radius) {
-                let dmg = 100;
-                if (player.hasLordPackage) dmg *= 1.5; // Damage boost
-
-                bot.health -= dmg;
-                if (bot.health <= 0) {
-                    bot.health = 0;
-                    bot.isDead = true;
-                    bot.respawnTimer = 10000;
-                    kills++;
-                    updateHUD();
-                    checkTeamEliminated(bot.teamId);
-                }
-            }
-        });
-    }
-
-    function useBomb() {
-        if (!gameRunning || player.isDead) return;
-        if (!player.hasKingPackage && !player.hasLordPackage) return;
-        const now = Date.now();
-        if (now - lastBombTime < 3000) return;
-        lastBombTime = now;
-        const b = new Bomb(player.x, player.y, player.angle, TEAMS[player.teamId].color, 'player', player.teamId);
-        bombs.push(b);
-    }
-
-    function useRocket() {
-        if (!gameRunning || player.isDead || !player.hasLordPackage) return;
-        const now = Date.now();
-        const fireRate = 1200; // Fast rockets
-        if (now - lastShootTime < fireRate) return;
-        lastShootTime = now;
-        const r = new Rocket(player.x, player.y, player.angle, TEAMS[player.teamId].color, 'player', player.teamId);
-        rockets.push(r);
-    }
-
-    // Knife Attack Logic (Right Click Shortcut)
-    window.addEventListener('contextmenu', e => {
-        e.preventDefault();
-        useKnife();
-    });
-
-    // Bomb Throw Logic (G Shortcut)
-    window.addEventListener('keydown', e => {
-        if (e.key.toLowerCase() === 'g') {
-            useBomb();
-        }
-    });
-
-    window.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return; // Only Left Click
-        if (!gameRunning || player.isDead) return;
-
-        if (player.currentSlot === 1) {
-            let weapon = player.weapon;
-            if (player.hasLordPackage) {
-                weapon = WEAPONS.AK47; // Forced AK47 boost
-            }
-
-            const now = Date.now();
-            if (now - lastShootTime >= weapon.fireRate) {
-                let dmg = weapon.damage;
-                if (player.hasLordPackage) dmg *= 1.5; // Damage boost
-
-                const b = new Bullet(
-                    player.x,
-                    player.y,
-                    player.angle,
-                    TEAMS[player.teamId].color,
-                    'player',
-                    player.teamId,
-                    dmg,
-                    weapon.bulletSpeed
-                );
-                bullets.push(b);
-                playSound(400 + Math.random() * 100, 'square', 0.05, 0.05, false); // Shoot sound
-                lastShootTime = now;
-            }
-        } else if (player.currentSlot === 2) {
-            useKnife();
-        } else if (player.currentSlot === 3) {
-            useBomb();
-        } else if (player.currentSlot === 4) {
-            useRocket();
-        }
-    });
-
-
-    window.onbeforeunload = () => {
-        recordLeave();
-    };
+    update(deltaTime);
+    draw();
 
     requestAnimationFrame(loop);
-    updateHUD(); // Initial HUD update to show points and locks
+}
+
+window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+});
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+// Note: selectedMap is already declared at the top as 'NORMAL'
+
+updateHUD();
+
+
+startBtn.onclick = () => {
+    if (checkBan()) return;
+
+    // Check if player has enough points for their weapon
+    if (totalPoints < player.weapon.cost) {
+        alert("Bu silah için yeterli puanın yok!");
+        return;
+    }
+
+    if (player.hasLordPackage || player.hasVIPPackage) {
+        // Show map choice
+        startBtn.classList.add('hidden');
+        document.getElementById('map-selection').classList.remove('hidden');
+    } else {
+        selectedMap = 'NORMAL';
+        startGame();
+    }
+};
+
+document.querySelectorAll('.map-btn').forEach(btn => {
+    btn.onclick = () => {
+        selectedMap = btn.dataset.map;
+        document.getElementById('map-selection').classList.add('hidden');
+        document.getElementById('start-btn').classList.remove('hidden');
+        startGame();
+    };
+});
+
+function startGame() {
+    // Security check: Force Normal Map if not eligible
+    if (!(player.hasLordPackage || player.hasVIPPackage)) {
+        selectedMap = 'NORMAL';
+    }
+
+    menuOverlay.classList.add('hidden');
+    gameRunning = true;
+    initAudio();
+    player.shieldTimer = 3000; // Initial shield
+    lastTime = 0;
+
+    // Decrement Gold Trial if used
+    if (goldTrial > 0 && !player.hasGoldPackage) {
+        goldTrial--;
+        localStorage.setItem('goldTrial', goldTrial);
+    }
+
+    updateHUD();
+    requestAnimationFrame(loop);
+}
+
+const emperorBtn = document.getElementById('emperor-btn');
+const emperorModal = document.getElementById('emperor-modal');
+const closeBtn = document.querySelector('.close-btn');
+
+if (emperorBtn && emperorModal) {
+    emperorBtn.onclick = () => {
+        emperorModal.classList.remove('hidden');
+    };
+}
+
+// Final Robust Close Modal Logic
+const finalCloseBtn = document.getElementById('close-modal');
+if (finalCloseBtn) {
+    finalCloseBtn.onclick = () => {
+        if (emperorModal) emperorModal.classList.add('hidden');
+    };
+}
+
+window.onclick = (event) => {
+    if (event.target == emperorModal) {
+        emperorModal.classList.add('hidden');
+    }
+};
+
+document.querySelectorAll('.buy-btn').forEach(btn => {
+    btn.onclick = () => {
+        const pkgName = btn.parentElement.querySelector('h3').innerText;
+        const pkgType = btn.dataset.package;
+        let price = 0;
+
+        if (pkgType === 'gold') price = 50;
+        else if (pkgType === 'king') price = 100;
+        else if (pkgType === 'lord') price = 500;
+        else if (pkgType === 'vip') price = 750;
+
+        // Apply VIP discount (25%) on Gold and King
+        if (player.hasVIPPackage && (pkgType === 'gold' || pkgType === 'king')) {
+            price *= 0.75;
+            alert(`VIP İNDİRİMİ UYGULANDI! Yeni Fiyat: ${price.toFixed(2)} TL`);
+        }
+
+        if (pkgType === 'gold') {
+            player.hasGoldPackage = true;
+            alert(`${pkgName} AKTİF! Artık BIÇAK kullanabilirsin.`);
+        } else if (pkgType === 'king') {
+            player.hasKingPackage = true;
+            alert(`${pkgName} AKTİF! Artık BOMBA kullanabilirsin.`);
+        } else if (pkgType === 'lord') {
+            player.hasLordPackage = true;
+            alert(`${pkgName} AKTİF! Efsanevi güçlerin ve AK-47 hazır!`);
+        } else if (pkgType === 'vip') {
+            player.hasVIPPackage = true;
+            alert(`${pkgName} AKTİF! Artık indirimlerden ve VIP haritadan yararlanabilirsin.`);
+        } else {
+            alert(`${pkgName} satın alma sistemi şu an bakımda! Lütfen daha sonra tekrar deneyiniz.`);
+        }
+        updateHUD();
+    };
+});
+
+// Class Selection Logic
+document.querySelectorAll('.class-btn').forEach(btn => {
+    btn.onclick = () => {
+        const type = btn.dataset.class;
+        const weapon = WEAPONS[type];
+
+        if (totalPoints >= weapon.cost) {
+            selectedClass = type;
+            player.weapon = weapon;
+            player.speed = weapon.playerSpeed;
+
+            document.querySelectorAll('.class-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        } else {
+            alert(`Bu sınıfı açmak için ${weapon.cost} puan gerekiyor! Şuan ${totalPoints} puanın var.`);
+        }
+    };
+});
+
+
+function useKnife() {
+    if (!gameRunning || player.isDead) return;
+    const hasEffect = player.hasGoldPackage || (goldTrial > 0) || player.hasLordPackage;
+    if (!hasEffect) return;
+
+    const now = Date.now();
+    if (now - lastKnifeTime < 1000) return;
+    lastKnifeTime = now;
+    player.swingProgress = 0.01;
+
+    entities.forEach(bot => {
+        if (bot.isDead || bot.shieldTimer > 0) return;
+        const dx = bot.x - player.x;
+        const dy = bot.y - player.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 100 + bot.radius) {
+            let dmg = 100;
+            if (player.hasLordPackage) dmg *= 1.5; // Damage boost
+
+            bot.health -= dmg;
+            if (bot.health <= 0) {
+                bot.health = 0;
+                bot.isDead = true;
+                bot.respawnTimer = 10000;
+                kills++;
+                updateHUD();
+                checkTeamEliminated(bot.teamId);
+            }
+        }
+    });
+}
+
+function useBomb() {
+    if (!gameRunning || player.isDead) return;
+    if (!player.hasKingPackage && !player.hasLordPackage) return;
+    const now = Date.now();
+    if (now - lastBombTime < 3000) return;
+    lastBombTime = now;
+    const b = new Bomb(player.x, player.y, player.angle, TEAMS[player.teamId].color, 'player', player.teamId);
+    bombs.push(b);
+}
+
+function useRocket() {
+    if (!gameRunning || player.isDead || !player.hasLordPackage) return;
+    const now = Date.now();
+    const fireRate = 1200; // Fast rockets
+    if (now - lastShootTime < fireRate) return;
+    lastShootTime = now;
+    const r = new Rocket(player.x, player.y, player.angle, TEAMS[player.teamId].color, 'player', player.teamId);
+    rockets.push(r);
+}
+
+// Knife Attack Logic (Right Click Shortcut)
+window.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    useKnife();
+});
+
+// Bomb Throw Logic (G Shortcut)
+window.addEventListener('keydown', e => {
+    if (e.key.toLowerCase() === 'g') {
+        useBomb();
+    }
+});
+
+window.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return; // Only Left Click
+    if (!gameRunning || player.isDead) return;
+
+    if (player.currentSlot === 1) {
+        let weapon = player.weapon;
+        if (player.hasLordPackage) {
+            weapon = WEAPONS.AK47; // Forced AK47 boost
+        }
+
+        const now = Date.now();
+        if (now - lastShootTime >= weapon.fireRate) {
+            let dmg = weapon.damage;
+            if (player.hasLordPackage) dmg *= 1.5; // Damage boost
+
+            const b = new Bullet(
+                player.x,
+                player.y,
+                player.angle,
+                TEAMS[player.teamId].color,
+                'player',
+                player.teamId,
+                dmg,
+                weapon.bulletSpeed
+            );
+            bullets.push(b);
+            playSound(400 + Math.random() * 100, 'square', 0.05, 0.05, false); // Shoot sound
+            lastShootTime = now;
+        }
+    } else if (player.currentSlot === 2) {
+        useKnife();
+    } else if (player.currentSlot === 3) {
+        useBomb();
+    } else if (player.currentSlot === 4) {
+        useRocket();
+    }
+});
+
+
+window.onbeforeunload = () => {
+    recordLeave();
+};
+
+requestAnimationFrame(loop);
+updateHUD(); // Initial HUD update to show points and locks
