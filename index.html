@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Çağdaş Lord - War Server</title>
     <link rel="stylesheet" href="style.css">
     <script src="main.js" defer></script>
@@ -16,7 +16,29 @@
 
 <body>
     <div id="app">
-        <div id="hud-overlay" class="glass">
+
+        <!-- ===== NAME + DEVICE SELECTION SCREEN ===== -->
+        <div id="name-screen" class="glass full-screen-overlay">
+            <h1 class="menu-title">ÇAĞDAŞ LORD</h1>
+            <p class="name-subtitle">Savaşa girmeden önce kendini tanıt!</p>
+            <div class="name-input-wrap">
+                <input type="text" id="name-input" class="name-input" placeholder="Adını gir... (örn: Miro, Çaşo)"
+                    maxlength="20" autocomplete="off" />
+            </div>
+            <p class="device-label">Cihazını Seç:</p>
+            <div class="device-btn-row">
+                <button id="btn-pc" class="device-btn active" onclick="selectDevice('PC')">
+                    🖥️ PC / Bilgisayar
+                </button>
+                <button id="btn-mobile" class="device-btn" onclick="selectDevice('MOBILE')">
+                    📱 Mobil / Telefon
+                </button>
+            </div>
+            <button id="name-confirm-btn" class="premium-btn" onclick="confirmName()">TAMAM &amp; DEVAM ET</button>
+        </div>
+
+        <!-- ===== GAME HUD ===== -->
+        <div id="hud-overlay" class="glass hidden">
             <div id="team-status"></div>
             <div class="hud-top">
                 <h1 class="game-title">ÇAĞDAŞ LORD</h1>
@@ -48,9 +70,13 @@
             </div>
         </div>
 
+        <!-- Kill Feed -->
+        <div id="kill-feed"></div>
+
         <canvas id="gameCanvas"></canvas>
 
-        <div id="menu-overlay" class="glass">
+        <!-- ===== MAIN MENU OVERLAY ===== -->
+        <div id="menu-overlay" class="glass hidden">
             <h1 class="menu-title">ÇAĞDAŞ LORD</h1>
             <div id="points-display" class="glass">Puan: <span id="total-points">0</span></div>
 
@@ -120,7 +146,7 @@
                         <div class="package-card lord glass">
                             <div class="package-badge">VIP</div>
                             <h3>LORD PAKETİ</h3>
-                            <p>+ AK-47 Modeli + Roketatar (Slot 4 - %50 Hızlı) + Ölümcül Bıçak & Bomba + %50 Hasar
+                            <p>+ AK-47 Modeli + Roketatar (Slot 4 - %50 Hızlı) + Ölümcül Bıçak &amp; Bomba + %50 Hasar
                                 Direnci + %50 Hasar Artışı</p>
                             <span class="price">500.00 TL</span>
                             <button class="buy-btn" data-package="lord">SATIN AL</button>
@@ -128,7 +154,8 @@
                         <div class="package-card vip glass">
                             <div class="package-badge" style="background: #bf00ff;">ELITE</div>
                             <h3>VIP PAKETİ</h3>
-                            <p>+ Özel VIP Harita Erişimi + Gold & Kral Paketlerinde %25 İndirim + Mor Neon Efektler</p>
+                            <p>+ Özel VIP Harita Erişimi + Gold &amp; Kral Paketlerinde %25 İndirim + Mor Neon Efektler
+                            </p>
                             <span class="price">750.00 TL</span>
                             <button class="buy-btn" data-package="vip">SATIN AL</button>
                         </div>
@@ -136,9 +163,25 @@
                 </div>
             </div>
 
-
-            <div class="controls-hint">
+            <div class="controls-hint" id="controls-hint">
                 <p>WASD: Hareket | Mouse: Nişan | Sol Tık: Ateş</p>
+            </div>
+        </div>
+
+        <!-- ===== MOBILE CONTROLS ===== -->
+        <div id="mobile-controls" class="hidden">
+            <!-- Left Joystick -->
+            <div id="joystick-zone">
+                <div id="joystick-base">
+                    <div id="joystick-knob"></div>
+                </div>
+            </div>
+            <!-- Right action buttons -->
+            <div id="mobile-action-btns">
+                <button id="mob-fire-btn" class="mob-btn fire">🔫</button>
+                <button id="mob-knife-btn" class="mob-btn knife">🔪</button>
+                <button id="mob-bomb-btn" class="mob-btn bomb">💣</button>
+                <button id="mob-rocket-btn" class="mob-btn rocket">🚀</button>
             </div>
         </div>
 
