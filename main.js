@@ -253,6 +253,29 @@ function checkWallCollision(x, y, radius) {
     return false;
 }
 
+function resolveWallCollision(entity) {
+    if (!entity) return;
+    for (const wall of WALLS) {
+        const closestX = Math.max(wall.x, Math.min(entity.x, wall.x + wall.w));
+        const closestY = Math.max(wall.y, Math.min(entity.y, wall.y + wall.h));
+        const dx = entity.x - closestX;
+        const dy = entity.y - closestY;
+        const distSq = dx * dx + dy * dy;
+
+        if (distSq < entity.radius * entity.radius) {
+            const dist = Math.sqrt(distSq);
+            if (dist < 0.01) {
+                // If deep inside, push toward world center
+                entity.x += (entity.x < WORLD_WIDTH / 2) ? 1 : -1;
+                continue;
+            }
+            const overlap = entity.radius - dist;
+            entity.x += (dx / dist) * overlap;
+            entity.y += (dy / dist) * overlap;
+        }
+    }
+}
+
 function getRandomSafePosition(radius) {
     let x, y;
     let attempts = 0;
@@ -796,11 +819,11 @@ class Bot {
             }
         }
 
-        // Bounds
-        if (this.x < 0) this.x = WORLD_WIDTH;
-        if (this.x > WORLD_WIDTH) this.x = 0;
-        if (this.y < 0) this.y = WORLD_HEIGHT;
-        if (this.y > WORLD_HEIGHT) this.y = 0;
+        // Bounds (Clamping instead of wrapping to respect boundary walls)
+        this.x = Math.max(0, Math.min(WORLD_WIDTH, this.x));
+        this.y = Math.max(0, Math.min(WORLD_HEIGHT, this.y));
+
+        resolveWallCollision(this);
     }
 
     draw(offsetX, offsetY) {
@@ -937,6 +960,7 @@ function update(deltaTime) {
             const screenY = canvas.height / 2;
             player.angle = Math.atan2(mouse.y - screenY, mouse.x - screenX);
         }
+        resolveWallCollision(player);
     }
 
     // Update Entities (Autonomous)
