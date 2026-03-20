@@ -1770,6 +1770,12 @@ function confirmName() {
         baseY = r.top + r.height / 2;
     }
 
+    function updateMobileAngle(cx, cy) {
+        const dx = cx - window.innerWidth / 2;
+        const dy = cy - window.innerHeight / 2;
+        player.angle = Math.atan2(dy, dx);
+    }
+
     joystickBase.addEventListener('touchstart', e => {
         e.preventDefault();
         joystickActive = true;
@@ -1820,12 +1826,16 @@ function confirmName() {
         keys['d'] = dx > deadzone;
 
         if (deviceMode === 'MOBILE' && (Math.abs(dx) > deadzone || Math.abs(dy) > deadzone)) {
-            // Face move direction if not actively aiming
-            if (!lookTouchId) {
+            // Face move direction ONLY if no other touches are active (e.g. aiming/buttons)
+            const activeTouches = Array.from(arguments[0]?.touches || []); // This is tricky in a helper
+            // Better: use the lookTouchId and a button flag
+            if (!lookTouchId && !isMobileActionActive) {
                 player.angle = Math.atan2(dy, dx);
             }
         }
     }
+
+    let isMobileActionActive = false;
 
     // Mobile look (drag on canvas area outside joystick)
     let lookTouchId = null;
@@ -1835,8 +1845,7 @@ function confirmName() {
         e.preventDefault();
         const t = e.changedTouches[0];
         lookTouchId = t.identifier;
-        lastLookX = t.clientX;
-        lastLookY = t.clientY;
+        updateMobileAngle(t.clientX, t.clientY);
         // Also trigger fire on tap
         if (gameRunning && !player.isDead && player.currentSlot === 1) {
             const now = Date.now();
@@ -1860,11 +1869,7 @@ function confirmName() {
         e.preventDefault();
         for (const t of e.changedTouches) {
             if (t.identifier === lookTouchId) {
-                const dx = t.clientX - canvas.width / 2;
-                const dy = t.clientY - canvas.height / 2;
-                player.angle = Math.atan2(dy, dx);
-                lastLookX = t.clientX;
-                lastLookY = t.clientY;
+                updateMobileAngle(t.clientX, t.clientY);
                 break;
             }
         }
@@ -1886,6 +1891,8 @@ function confirmName() {
         fireBtnEl.addEventListener('touchstart', e => {
             e.stopPropagation();
             if (!gameRunning || player.isDead) return;
+            isMobileActionActive = true;
+            updateMobileAngle(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
             let weapon = player.weapon;
             if (player.hasLordPackage && weapon !== WEAPONS.GOD_GUN) weapon = WEAPONS.AK47;
             const now = Date.now();
@@ -1902,7 +1909,41 @@ function confirmName() {
         }, { passive: false });
     }
 
-    if (knifeBtnEl) knifeBtnEl.addEventListener('touchstart', e => { e.stopPropagation(); useKnife(); }, { passive: false });
-    if (bombBtnEl) bombBtnEl.addEventListener('touchstart', e => { e.stopPropagation(); useBomb(); }, { passive: false });
-    if (rocketBtnEl) rocketBtnEl.addEventListener('touchstart', e => { e.stopPropagation(); useRocket(); }, { passive: false });
+    if (fireBtnEl) {
+        fireBtnEl.addEventListener('touchmove', e => {
+            e.stopPropagation();
+            updateMobileAngle(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+        }, { passive: false });
+        fireBtnEl.addEventListener('touchend', e => {
+            isMobileActionActive = false;
+        }, { passive: false });
+    }
+
+    if (knifeBtnEl) {
+        knifeBtnEl.addEventListener('touchstart', e => {
+            e.stopPropagation();
+            isMobileActionActive = true;
+            updateMobileAngle(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+            useKnife();
+        }, { passive: false });
+        knifeBtnEl.addEventListener('touchend', e => { isMobileActionActive = false; }, { passive: false });
+    }
+    if (bombBtnEl) {
+        bombBtnEl.addEventListener('touchstart', e => {
+            e.stopPropagation();
+            isMobileActionActive = true;
+            updateMobileAngle(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+            useBomb();
+        }, { passive: false });
+        bombBtnEl.addEventListener('touchend', e => { isMobileActionActive = false; }, { passive: false });
+    }
+    if (rocketBtnEl) {
+        rocketBtnEl.addEventListener('touchstart', e => {
+            e.stopPropagation();
+            isMobileActionActive = true;
+            updateMobileAngle(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+            useRocket();
+        }, { passive: false });
+        rocketBtnEl.addEventListener('touchend', e => { isMobileActionActive = false; }, { passive: false });
+    }
 })();
