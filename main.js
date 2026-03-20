@@ -624,10 +624,10 @@ class Bot {
         return names[Math.floor(Math.random() * names.length)] + '_' + Math.floor(Math.random() * 999);
     }
 
-    update() {
-        if (this.shieldTimer > 0) this.shieldTimer -= 16;
+    update(deltaTime) {
+        if (this.shieldTimer > 0) this.shieldTimer -= deltaTime;
         if (this.respawnTimer > 0) {
-            this.respawnTimer -= 16;
+            this.respawnTimer -= deltaTime;
             if (this.respawnTimer <= 0) this.spawn();
             return;
         }
@@ -685,7 +685,7 @@ class Bot {
             this.targetAngle = Math.atan2(nearestEnemy.y - this.y, nearestEnemy.x - this.x);
 
             if (this.reactionTimer > 0) {
-                this.reactionTimer -= 16;
+                this.reactionTimer -= deltaTime;
                 // Still move but don't shoot yet
             }
 
@@ -931,14 +931,16 @@ function update(deltaTime) {
         player.x = Math.max(0, Math.min(WORLD_WIDTH, player.x));
         player.y = Math.max(0, Math.min(WORLD_HEIGHT, player.y));
 
-        // Player angle to mouse
-        const screenX = canvas.width / 2;
-        const screenY = canvas.height / 2;
-        player.angle = Math.atan2(mouse.y - screenY, mouse.x - screenX);
+        // Player angle
+        if (deviceMode === 'PC') {
+            const screenX = canvas.width / 2;
+            const screenY = canvas.height / 2;
+            player.angle = Math.atan2(mouse.y - screenY, mouse.x - screenX);
+        }
     }
 
     // Update Entities (Autonomous)
-    entities.forEach(bot => bot.update());
+    entities.forEach(bot => bot.update(deltaTime));
 
     // Update Bullets
     for (let i = bullets.length - 1; i >= 0; i--) {
@@ -1471,6 +1473,8 @@ document.querySelectorAll('.map-btn').forEach(btn => {
 });
 
 function startGame() {
+    if (gameRunning) return; // Prevent multiple loops
+    gameRunning = true;
     // Security check: Force Normal Map if not eligible
     if (!(player.hasLordPackage || player.hasVIPPackage)) {
         selectedMap = 'NORMAL';
@@ -1814,6 +1818,13 @@ function confirmName() {
         keys['s'] = dy > deadzone;
         keys['a'] = dx < -deadzone;
         keys['d'] = dx > deadzone;
+
+        if (deviceMode === 'MOBILE' && (Math.abs(dx) > deadzone || Math.abs(dy) > deadzone)) {
+            // Face move direction if not actively aiming
+            if (!lookTouchId) {
+                player.angle = Math.atan2(dy, dx);
+            }
+        }
     }
 
     // Mobile look (drag on canvas area outside joystick)
