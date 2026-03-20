@@ -2018,3 +2018,21 @@ function confirmName() {
         rocketBtnEl.addEventListener('touchend', e => { isMobileActionActive = false; }, { passive: false });
     }
 })();
+
+// Autocomplete name if exists / Skip name screen
+(function () {
+    const savedName = localStorage.getItem('playerName');
+    if (savedName) {
+        playerName = savedName;
+        const nameInput = document.getElementById('name-input');
+        if (nameInput) nameInput.value = savedName;
+        const nameScreen = document.getElementById('name-screen');
+        if (nameScreen) nameScreen.classList.add('hidden');
+
+        // Final check: if user is banned with this name, show screen again
+        if (checkBan()) {
+            if (nameScreen) nameScreen.classList.remove('hidden');
+        }
+        updateHUD();
+    }
+})();
