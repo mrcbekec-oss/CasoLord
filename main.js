@@ -772,9 +772,9 @@ class Bot {
             }
         }
 
-        // Apply dodge
-        this.x += dodgeX;
-        this.y += dodgeY;
+        // Apply dodge with wall checks
+        if (!checkWallCollision(this.x + dodgeX, this.y, this.radius)) this.x += dodgeX;
+        if (!checkWallCollision(this.x, this.y + dodgeY, this.radius)) this.y += dodgeY;
 
         // Smooth rotation
         this.angle += (this.targetAngle - this.angle) * 0.1;
@@ -1211,6 +1211,31 @@ function draw() {
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 3;
         ctx.stroke();
+
+        // 🎖️ Player Ranks (if 30+ points)
+        const lowerPlayerName = playerName.toLowerCase();
+        if (totalPoints >= 30 && lowerPlayerName !== 'miro' && lowerPlayerName !== 'çaşo') {
+            let rank = 'Asker';
+            if (totalPoints >= 60) rank = 'Onbaşı';
+            if (totalPoints >= 100) rank = 'Çavuş';
+            if (totalPoints >= 150) rank = 'Teğmen';
+            if (totalPoints >= 210) rank = 'Yüzbaşı';
+            if (totalPoints >= 300) rank = 'Binbaşı';
+            if (totalPoints >= 400) rank = 'Albay';
+            if (totalPoints >= 500) rank = 'Kral';
+
+            ctx.restore();
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.fillStyle = TEAMS[player.teamId].color;
+            ctx.font = 'bold 12px Rajdhani';
+            ctx.textAlign = 'center';
+            ctx.fillText(rank.toUpperCase(), 0, -50);
+            ctx.restore();
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate(player.angle);
+        }
 
         // 🛡️ Pulse Shield Effect
         if (player.shieldTimer > 0) {
@@ -1725,10 +1750,14 @@ function selectDevice(mode) {
 }
 
 function confirmName() {
-    const inputEl = document.getElementById('name-input');
-    let name = (inputEl ? inputEl.value.trim() : '') || 'Misafir';
-    playerName = name;
+    const input = document.getElementById('name-input');
+    playerName = input.value.trim() || 'Lord_' + Math.floor(Math.random() * 999);
     localStorage.setItem('playerName', playerName);
+
+    // Ensure only one Miro/Çaşo (User's special request)
+    // Since it's local, we just allow the player to be whoever they want.
+
+    document.getElementById('name-screen').classList.add('hidden');
 
     // Ban check
     if (checkBan()) return;
@@ -1833,10 +1862,8 @@ function confirmName() {
         if (deviceMode === 'MOBILE') {
             const dist = Math.sqrt(dx * dx + dy * dy);
             if (dist > deadzone) {
-                // Only rotate toward movement if no one is explicitly aiming
-                if (!lookTouchId && !isMobileActionActive) {
-                    player.angle = Math.atan2(dy, dx);
-                }
+                // Character no longer rotates with joystick as requested.
+                // It will only rotate when touching the screen to aim.
             }
         }
     }
