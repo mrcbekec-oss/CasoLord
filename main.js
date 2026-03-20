@@ -648,6 +648,7 @@ class Bot {
     }
 
     update(deltaTime) {
+        if (this.isDead) return;
         if (this.shieldTimer > 0) this.shieldTimer -= deltaTime;
         if (this.respawnTimer > 0) {
             this.respawnTimer -= deltaTime;
@@ -1003,20 +1004,27 @@ function update(deltaTime) {
         }
 
         // Check bot collisions
+        const bRadiusSq = b.radius * b.radius; // Assuming bullet has radius? No, let's use a fixed small dist
         for (let j = entities.length - 1; j >= 0; j--) {
             const bot = entities[j];
             if (bot.isDead || b.teamId === bot.teamId || bot.shieldTimer > 0) continue;
 
             const dx = b.x - bot.x;
             const dy = b.y - bot.y;
-            if (Math.sqrt(dx * dx + dy * dy) < bot.radius) {
+            const distSq = dx * dx + dy * dy;
+            const combinedRadiusSq = bot.radius * bot.radius; // Bullets are tiny, just check bot radius
+
+            if (distSq < combinedRadiusSq) {
                 bot.health -= b.damage;
-                spawnParticles(bot.x, bot.y, bot.color, 8);
+                // Limit particles on VIP map for performance
+                const pCount = selectedMap === 'VIP' ? 4 : 8;
+                spawnParticles(bot.x, bot.y, bot.color, pCount);
                 playSound(200, 'sine', 0.1, 0.05);
                 bullets.splice(i, 1);
                 if (bot.health <= 0) {
                     bot.health = 0;
                     bot.isDead = true;
+                    // ... rest of kill logic
                     bot.respawnTimer = 10000;
                     spawnParticles(bot.x, bot.y, '#fff', 20, 8);
                     spawnPowerUp(bot.x, bot.y);
@@ -1103,6 +1111,12 @@ function update(deltaTime) {
         if (explosions[i].finished) {
             explosions.splice(i, 1);
         }
+    }
+
+    // Occasional Win Check Fallback
+    if (gameRunning && Math.random() < 0.01) {
+        const aliveTeams = TEAMS.filter(t => !t.isEliminated);
+        if (aliveTeams.length === 1) victory(aliveTeams[0].id);
     }
 }
 
