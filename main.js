@@ -1771,9 +1771,14 @@ function confirmName() {
     }
 
     function updateMobileAngle(cx, cy) {
-        const dx = cx - window.innerWidth / 2;
-        const dy = cy - window.innerHeight / 2;
-        player.angle = Math.atan2(dy, dx);
+        const rect = canvas.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const dx = cx - centerX;
+        const dy = cy - centerY;
+        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+            player.angle = Math.atan2(dy, dx);
+        }
     }
 
     joystickBase.addEventListener('touchstart', e => {
@@ -1825,12 +1830,13 @@ function confirmName() {
         keys['a'] = dx < -deadzone;
         keys['d'] = dx > deadzone;
 
-        if (deviceMode === 'MOBILE' && (Math.abs(dx) > deadzone || Math.abs(dy) > deadzone)) {
-            // Face move direction ONLY if no other touches are active (e.g. aiming/buttons)
-            const activeTouches = Array.from(arguments[0]?.touches || []); // This is tricky in a helper
-            // Better: use the lookTouchId and a button flag
-            if (!lookTouchId && !isMobileActionActive) {
-                player.angle = Math.atan2(dy, dx);
+        if (deviceMode === 'MOBILE') {
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > deadzone) {
+                // Only rotate toward movement if no one is explicitly aiming
+                if (!lookTouchId && !isMobileActionActive) {
+                    player.angle = Math.atan2(dy, dx);
+                }
             }
         }
     }
