@@ -11,6 +11,15 @@ let gameRunning = false;
 let kills = 0;
 let lastTime = 0;
 
+// Damage Tracking for Death Screen
+let damageTakenFromCurrentKiller = 0;
+let hitsTakenFromCurrentKiller = 0;
+let damageDealtToCurrentKiller = 0;
+let hitsDealtToCurrentKiller = 0;
+let lastKillerName = "";
+let lastKillerWeapon = "";
+let lastKillerId = null;
+
 // Player name is set via the HTML name screen (no prompt)
 let playerName = '';
 let deviceMode = 'PC'; // 'PC' or 'MOBILE'
@@ -329,7 +338,7 @@ const NUM_BOTS = 9; // 1 Player + 9 Bots = 10 total (2 per team)
 const RANKS = ['Asker', 'Onbaşı', 'Çavuş', 'Teğmen', 'Yüzbaşı', 'Binbaşı', 'Albay', 'Kral'];
 
 class Bullet {
-    constructor(x, y, angle, color, owner, teamId, damage = 25, speed = 10) {
+    constructor(x, y, angle, color, owner, teamId, damage = 25, speed = 10, ownerId = null) {
         this.x = x;
         this.y = y;
         this.angle = angle;
@@ -338,6 +347,7 @@ class Bullet {
         this.color = color;
         this.owner = owner;
         this.teamId = teamId;
+        this.ownerId = ownerId;
         this.radius = 4;
         this.distance = 0;
         this.maxDistance = 1000;
@@ -614,7 +624,8 @@ const explosions = [];
 
 
 class Bot {
-    constructor(teamId) {
+    constructor(teamId, id) {
+        this.id = id;
         this.teamId = teamId;
         this.spawn();
         this.name = this.generateName();
@@ -778,14 +789,16 @@ class Bot {
                     this.rocketTimer = 0;
                 } else if (this.shootTimer > fireThreshold) {
                     // VIP Bot Shooting (Faster bullets)
-                    bullets.push(new Bullet(this.x, this.y, shotAngle, this.color, 'bot', this.teamId, 25, 15));
+                    bullets.push(new Bullet(this.x, this.y, shotAngle, this.color, 'bot', this.teamId, 25, 15, this.id));
                     this.shootTimer = 0;
                 }
             } else {
                 // Normal Bot Shooting (Original speed)
-                if (this.shootTimer > fireThreshold) {
-                    bullets.push(new Bullet(this.x, this.y, shotAngle, this.color, 'bot', this.teamId, 25, 10));
-                    this.shootTimer = 0;
+                if (this.shootThreshold || true) { // Reference bot fire logic
+                    if (this.shootTimer > fireThreshold) {
+                        bullets.push(new Bullet(this.x, this.y, shotAngle, this.color, 'bot', this.teamId, 25, 10, this.id));
+                        this.shootTimer = 0;
+                    }
                 }
             }
         } else {
@@ -883,7 +896,7 @@ for (let i = 0; i < NUM_BOTS; i++) {
     let teamId;
     if (i < 2) teamId = 0;
     else teamId = Math.floor((i - 2) / 3) + 1;
-    entities.push(new Bot(teamId));
+    entities.push(new Bot(teamId, i));
 }
 
 function update(deltaTime) {
@@ -896,9 +909,14 @@ function update(deltaTime) {
     }
 
     if (player.shieldTimer > 0) player.shieldTimer -= deltaTime;
-    // Respawn Tick
+    // Player Respawn Logic
     if (player.isDead) {
         player.respawnTimer -= deltaTime;
+
+        // Update death screen timer if visible
+        const timerUI = document.getElementById('respawn-timer-ui');
+        if (timerUI) timerUI.innerText = Math.ceil(player.respawnTimer / 1000);
+
         if (player.respawnTimer <= 0 && !TEAMS[player.teamId].isEliminated) {
             player.isDead = false;
             player.health = player.maxHealth;
@@ -906,9 +924,19 @@ function update(deltaTime) {
             player.x = pos.x;
             player.y = pos.y;
             player.shieldTimer = 3000; // Shield on respawn
+
+            // Reset damage tracking
+            damageTakenFromCurrentKiller = 0;
+            hitsTakenFromCurrentKiller = 0;
+            damageDealtToCurrentKiller = 0;
+            hitsDealtToCurrentKiller = 0;
+            document.getElementById('death-screen')?.classList.add('hidden');
         }
+    } else {
+        if (player.shieldTimer > 0) player.shieldTimer -= deltaTime;
     }
 
+    // Bot Respawn Logic
     entities.forEach(bot => {
         if (bot.isDead) {
             bot.respawnTimer -= deltaTime;
@@ -922,21 +950,6 @@ function update(deltaTime) {
             if (bot.shieldTimer > 0) bot.shieldTimer -= deltaTime;
         }
     });
-
-    // Player Respawn Logic
-    if (player.isDead) {
-        player.respawnTimer -= deltaTime;
-        if (player.respawnTimer <= 0 && !TEAMS[player.teamId].isEliminated) {
-            player.isDead = false;
-            player.health = player.maxHealth;
-            const spawnPos = getRandomSafePosition(player.radius);
-            player.x = spawnPos.x;
-            player.y = spawnPos.y;
-            player.shieldTimer = 3000; // Shield on respawn
-        }
-    } else {
-        if (player.shieldTimer > 0) player.shieldTimer -= deltaTime;
-    }
 
     // Player move
     if (!player.isDead) {
@@ -988,6 +1001,17 @@ function update(deltaTime) {
                 let damage = b.damage;
                 if (player.hasLordPackage) damage *= 0.5;
                 player.health -= damage;
+
+                // Track damage for death screen (if bot killed player)
+                const killerBot = entities.find(e => e.id === b.ownerId);
+                if (killerBot) {
+                    lastKillerName = killerBot.name;
+                    lastKillerWeapon = killerBot.weapon?.name || "Tabanca";
+                    lastKillerId = killerBot.id;
+                    damageTakenFromCurrentKiller += damage;
+                    hitsTakenFromCurrentKiller++;
+                }
+
                 spawnParticles(player.x, player.y, '#ff0000', 10);
                 screenShake = Math.max(screenShake, 5);
                 playSound(150, 'sine', 0.1, 0.1);
@@ -996,6 +1020,7 @@ function update(deltaTime) {
                 if (player.health <= 0) {
                     player.health = 0;
                     player.isDead = true;
+                    showDeathScreen();
                     player.respawnTimer = 10000;
                     checkTeamEliminated(player.teamId);
                 }
@@ -1004,7 +1029,6 @@ function update(deltaTime) {
         }
 
         // Check bot collisions
-        const bRadiusSq = b.radius * b.radius; // Assuming bullet has radius? No, let's use a fixed small dist
         for (let j = entities.length - 1; j >= 0; j--) {
             const bot = entities[j];
             if (bot.isDead || b.teamId === bot.teamId || bot.shieldTimer > 0) continue;
@@ -1012,11 +1036,17 @@ function update(deltaTime) {
             const dx = b.x - bot.x;
             const dy = b.y - bot.y;
             const distSq = dx * dx + dy * dy;
-            const combinedRadiusSq = bot.radius * bot.radius; // Bullets are tiny, just check bot radius
+            const combinedRadiusSq = bot.radius * bot.radius;
 
             if (distSq < combinedRadiusSq) {
                 bot.health -= b.damage;
-                // Limit particles on VIP map for performance
+
+                // Track damage dealt by player
+                if (b.owner === 'player') {
+                    damageDealtToCurrentKiller += b.damage;
+                    hitsDealtToCurrentKiller++;
+                }
+
                 const pCount = selectedMap === 'VIP' ? 4 : 8;
                 spawnParticles(bot.x, bot.y, bot.color, pCount);
                 playSound(200, 'sine', 0.1, 0.05);
@@ -1024,7 +1054,6 @@ function update(deltaTime) {
                 if (bot.health <= 0) {
                     bot.health = 0;
                     bot.isDead = true;
-                    // ... rest of kill logic
                     bot.respawnTimer = 10000;
                     spawnParticles(bot.x, bot.y, '#fff', 20, 8);
                     spawnPowerUp(bot.x, bot.y);
@@ -1072,7 +1101,7 @@ function update(deltaTime) {
                     player.health = Math.min(player.maxHealth, player.health + 30);
                     playSound(600, 'sine', 0.2, 0.1, false);
                 } else if (p.type === 'SHIELD') {
-                    player.shieldTimer = Math.max(player.shieldTimer, 5000); // 5 sec shield
+                    player.shieldTimer = Math.max(player.shieldTimer, 5000);
                     playSound(800, 'sine', 0.2, 0.1, false);
                 } else {
                     totalPoints += 5;
@@ -1083,7 +1112,7 @@ function update(deltaTime) {
                 powerups.splice(i, 1);
             }
         }
-    } // Close Powerups loop
+    }
 
     if (screenShake > 0) screenShake *= 0.9;
     if (screenShake < 0.1) screenShake = 0;
@@ -1135,9 +1164,31 @@ function checkTeamEliminated(teamId) {
         if (activeTeams.length === 1) {
             victory(activeTeams[0].id);
         } else if (isPlayerInTeam) {
-            setTimeout(() => gameOver(), 2000);
+            // Delay showing game over to allow death screen to be seen?
+            // Actually, showDeathScreen is already called when health <= 0
         }
     }
+}
+
+function showDeathScreen() {
+    const ds = document.getElementById('death-screen');
+    if (!ds) return;
+
+    const killerBot = entities.find(e => e.id === lastKillerId); // Use ID for exact bot
+    const killerColor = killerBot ? killerBot.color : "#ff3e3e";
+
+    document.getElementById('killer-name').innerText = lastKillerName || "Bilinmeyen";
+    document.getElementById('killer-weapon-name').innerText = lastKillerWeapon || "Silah";
+    document.getElementById('stats-taken-hits').innerText = hitsTakenFromCurrentKiller;
+    document.getElementById('stats-taken-dmg').innerText = Math.round(damageTakenFromCurrentKiller);
+    document.getElementById('stats-dealt-hits').innerText = hitsDealtToCurrentKiller;
+    document.getElementById('stats-dealt-dmg').innerText = Math.round(damageDealtToCurrentKiller);
+
+    // Style adjustments
+    const killerAvatar = document.querySelector('.killer-avatar img');
+    if (killerAvatar) killerAvatar.style.borderColor = killerColor;
+
+    ds.classList.remove('hidden');
 }
 
 function victory(winningTeamId) {
@@ -1155,9 +1206,9 @@ function victory(winningTeamId) {
     const isPlayerWin = winningTeamId === player.teamId;
 
     menuOverlay.innerHTML = `
-        <h1 class="menu-title" style="background: linear-gradient(180deg, #fff, #ffd700); text-shadow: 0 0 30px rgba(255, 215, 0, 0.6);">
-            ${isPlayerWin ? 'ZAFER!' : 'MAÇ BİTTİ'}
-        </h1>
+         <h1 class="menu-title" style="background: linear-gradient(180deg, #fff, #ffd700); text-shadow: 0 0 30px rgba(255, 215, 0, 0.6);">
+             ${isPlayerWin ? 'OYUNU KAZANDINIZ!' : 'MAÇ BİTTİ'}
+         </h1>
         <div class="menu-info">
             <p style="color: ${winningTeam.color}; font-size: 2rem;">
                 ${winningTeam.name.toUpperCase()} TAKIMI KAZANDI!

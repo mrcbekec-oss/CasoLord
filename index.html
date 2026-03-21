@@ -87,15 +87,11 @@
 
             <div id="class-selection">
                 <h3>Sınıf Seç</h3>
+                <p style="color: #ffd700; font-size: 0.9rem; margin-bottom: 10px;">👇 Silahınızı aşağıdaki KOLEKSİYONDAN
+                    seçin!</p>
                 <div class="class-grid" id="class-grid">
                     <button class="class-btn active" data-class="DEFAULT">STANDART<br><small>Hız: Normal | Hasar:
                             25</small></button>
-                    <button class="class-btn locked" data-class="SNIPER">SNIPER<br><small>10 Puan | Tek
-                            Atış</small></button>
-                    <button class="class-btn locked" data-class="MACHINE_GUN">MAKİNELİ<br><small>5 Puan | Seri
-                            Atış</small></button>
-                    <button class="class-btn hidden" id="god-gun-btn" data-class="GOD_GUN"
-                        style="border-color: red; color: red;">TEK ATAN<br><small>Sonsuz Güç</small></button>
                 </div>
             </div>
 
@@ -205,6 +201,39 @@
                     <div id="open-animation-overlay" class="hidden">
                         <div class="opening-box">🎁</div>
                         <h3 id="reward-name">Kutu Açılıyor...</h3>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== DEATH SCREEN MODAL (CS:GO STYLE) ===== -->
+            <div id="death-screen" class="death-overlay hidden">
+                <div class="death-notice glass">
+                    <div class="death-main">
+                        <div class="killer-avatar">
+                            <img src="https://img.vavel.com/b-1558032734191.jpg" alt="Killer" id="killer-img">
+                        </div>
+                        <div class="killer-text">
+                            <h2 id="killer-name">BOT Maru</h2>
+                            <p id="death-cause">seni <span id="killer-weapon-name">AWP</span> ile öldürdü</p>
+                        </div>
+                        <div class="killer-weapon">
+                            <img src="https://www.csgotemp.com/img/weapons/awp.png" alt="Weapon" id="killer-weapon-img">
+                        </div>
+                    </div>
+                    <div class="death-stats-grid">
+                        <div class="stat-box taken">
+                            <span class="stat-label">Alınan hasar:</span>
+                            <span class="stat-value"><b id="stats-taken-hits">1</b> vuruşta <b
+                                    id="stats-taken-dmg">139</b></span>
+                        </div>
+                        <div class="stat-box dealt">
+                            <span class="stat-label">Verilen hasar:</span>
+                            <span class="stat-value"><b id="stats-dealt-hits">1</b> vuruşta <b
+                                    id="stats-dealt-dmg">13</b></span>
+                        </div>
+                    </div>
+                    <div class="respawn-line">
+                        Yeniden canlanıyorsun... <span id="respawn-timer-ui">10</span>s
                     </div>
                 </div>
             </div>
