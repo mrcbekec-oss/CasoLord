@@ -2030,10 +2030,13 @@ function confirmName() {
         if (nameInput) nameInput.value = savedName;
         const nameScreen = document.getElementById('name-screen');
         if (nameScreen) nameScreen.classList.add('hidden');
+        const menuOverlayEl = document.getElementById('menu-overlay');
+        if (menuOverlayEl) menuOverlayEl.classList.remove('hidden');
 
         // Final check: if user is banned with this name, show screen again
         if (checkBan()) {
             if (nameScreen) nameScreen.classList.remove('hidden');
+            if (menuOverlayEl) menuOverlayEl.classList.add('hidden');
         }
         updateHUD();
     }
