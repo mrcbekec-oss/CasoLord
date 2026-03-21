@@ -110,9 +110,19 @@
 
             <div id="start-menu-actions">
                 <button id="start-btn" class="premium-btn">OYNA</button>
+                <button id="store-btn" class="premium-btn store-btn">🛒 MAĞAZA</button>
                 <div id="map-selection" class="hidden">
                     <button class="map-btn" data-map="NORMAL">NORMAL HARİTA</button>
                     <button class="map-btn vip-btn" data-map="VIP">VIP HARİTA</button>
+                </div>
+            </div>
+
+            <!-- Collection Section -->
+            <div id="collection-section" class="teammates-section">
+                <h3>Silah Koleksiyonun</h3>
+                <div id="weapon-list" class="teammates-list">
+                    <!-- Owned weapons will appear here -->
+                    <span class="teammate active-weapon" data-weapon="DEFAULT">Standart Silah</span>
                 </div>
             </div>
 
@@ -159,6 +169,42 @@
                             <span class="price">750.00 TL</span>
                             <button class="buy-btn" data-package="vip">SATIN AL</button>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== STORE MODAL ===== -->
+            <div id="store-modal" class="modal hidden">
+                <div class="modal-content glass store-content">
+                    <button id="close-store" class="modal-close-btn">&times;</button>
+                    <h2 class="store-title">KUTU MAĞAZASI</h2>
+                    <div id="store-points" class="glass">Mevcut TL: <span id="current-tl">0</span></div>
+                    <div class="packages-grid">
+                        <div class="package-card box-card bronze">
+                            <div class="box-visual">📦</div>
+                            <h3>Bronz Kutu</h3>
+                            <p>Sıradan Silah Skinleri (Orman, Kar, Gece)</p>
+                            <span class="price">5 TL</span>
+                            <button class="buy-box-btn" data-box="bronze">SATIN AL</button>
+                        </div>
+                        <div class="package-card box-card silver featured">
+                            <div class="box-visual">🎁</div>
+                            <h3>Gümüş Kutu</h3>
+                            <p>Nadir Silah Skinleri (Çöl, Dijital, Kamuflaj)</p>
+                            <span class="price">10 TL</span>
+                            <button class="buy-box-btn" data-box="silver">SATIN AL</button>
+                        </div>
+                        <div class="package-card box-card gold">
+                            <div class="box-visual">💎</div>
+                            <h3>Altın Kutu</h3>
+                            <p>Efsanevi Silah Skinleri (Altın, İmparator, Ejder)</p>
+                            <span class="price">20 TL</span>
+                            <button class="buy-box-btn" data-box="gold">SATIN AL</button>
+                        </div>
+                    </div>
+                    <div id="open-animation-overlay" class="hidden">
+                        <div class="opening-box">🎁</div>
+                        <h3 id="reward-name">Kutu Açılıyor...</h3>
                     </div>
                 </div>
             </div>

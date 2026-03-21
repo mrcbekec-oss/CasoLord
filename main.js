@@ -1372,6 +1372,8 @@ function updateHUD() {
 
     const pointsSpan = document.getElementById('total-points');
     if (pointsSpan) pointsSpan.innerText = totalPoints;
+    const storePointsSpan = document.getElementById('current-tl');
+    if (storePointsSpan) storePointsSpan.innerText = totalPoints;
 
     const lowerName = (playerName || "").toLowerCase();
     const isGod = (lowerName === 'miro' || lowerName === 'çaşo');
@@ -2036,3 +2038,132 @@ function confirmName() {
         updateHUD();
     }
 })();
+// ===================== STORE & INVENTORY LOGIC =====================
+let inventory = JSON.parse(localStorage.getItem('weaponInventory')) || [{ id: 'DEFAULT', name: 'Standart Silah' }];
+let activeWeaponId = localStorage.getItem('activeWeaponId') || 'DEFAULT';
+
+const STORE_THEMES = {
+    bronze: ['Orman', 'Kar', 'Gece'],
+    silver: ['Çöl', 'Dijital', 'Kamuflaj'],
+    gold: ['Altın', 'İmparator', 'Ejder']
+};
+
+const BASE_WEAPON_TYPES = ['Tabanca', 'Sniper', 'Makineli', 'AK-47'];
+
+function initStore() {
+    const storeBtn = document.getElementById('store-btn');
+    const storeModal = document.getElementById('store-modal');
+    const closeStore = document.getElementById('close-store');
+    const buyBoxBtns = document.querySelectorAll('.buy-box-btn');
+
+    if (storeBtn) {
+        storeBtn.onclick = () => {
+            storeModal.classList.remove('hidden');
+            document.getElementById('current-tl').innerText = totalPoints;
+        };
+    }
+
+    if (closeStore) {
+        closeStore.onclick = () => storeModal.classList.add('hidden');
+    }
+
+    buyBoxBtns.forEach(btn => {
+        btn.onclick = () => openBox(btn.dataset.box);
+    });
+
+    updateCollectionUI();
+    applyActiveWeapon();
+}
+
+function openBox(type) {
+    let cost = type === 'bronze' ? 5 : (type === 'silver' ? 10 : 20);
+
+    if (totalPoints < cost) {
+        alert("Yetersiz TL! Savaşarak daha fazla kazanabilirsin.");
+        return;
+    }
+
+    totalPoints -= cost;
+    localStorage.setItem('totalPoints', totalPoints);
+    document.getElementById('current-tl').innerText = totalPoints;
+    updateHUD();
+
+    const overlay = document.getElementById('open-animation-overlay');
+    const rewardText = document.getElementById('reward-name');
+    overlay.classList.remove('hidden');
+    rewardText.innerText = "Kutu Açılıyor...";
+
+    setTimeout(() => {
+        const themeList = STORE_THEMES[type];
+        const theme = themeList[Math.floor(Math.random() * themeList.length)];
+        const baseType = BASE_WEAPON_TYPES[Math.floor(Math.random() * BASE_WEAPON_TYPES.length)];
+
+        const weaponName = `${baseType} ${theme} Silahı`;
+        const weaponId = `custom_${Date.now()}`;
+
+        const newWeapon = {
+            id: weaponId,
+            name: weaponName,
+            baseType: baseType.toUpperCase(),
+            theme: theme
+        };
+
+        inventory.push(newWeapon);
+        localStorage.setItem('weaponInventory', JSON.stringify(inventory));
+
+        rewardText.innerHTML = `TEBRİKLER!<br><span style="color: #ffd700">${weaponName}</span> Kazandın!`;
+        playSound(800, 'square', 0.5, 0.2, false);
+
+        setTimeout(() => {
+            overlay.classList.add('hidden');
+            updateCollectionUI();
+        }, 3000);
+    }, 2000);
+}
+
+function updateCollectionUI() {
+    const list = document.getElementById('weapon-list');
+    if (!list) return;
+
+    list.innerHTML = inventory.map(w => `
+        <span class="teammate ${activeWeaponId === w.id ? 'active-weapon' : ''}" 
+              onclick="selectInventoryWeapon('${w.id}')">
+            ${w.name}
+        </span>
+    `).join('');
+}
+
+function selectInventoryWeapon(id) {
+    activeWeaponId = id;
+    localStorage.setItem('activeWeaponId', id);
+    updateCollectionUI();
+    applyActiveWeapon();
+}
+
+function applyActiveWeapon() {
+    const weaponData = inventory.find(w => w.id === activeWeaponId) || inventory[0];
+
+    // Map baseType to existing WEAPONS prototypes
+    let protoKey = 'DEFAULT';
+    if (weaponData.baseType === 'SNIPER') protoKey = 'SNIPER';
+    else if (weaponData.baseType === 'MAKINELI') protoKey = 'MACHINE_GUN';
+    else if (weaponData.baseType === 'AK-47') protoKey = 'AK47';
+
+    const prototype = WEAPONS[protoKey];
+
+    // Create a specialized weapon object
+    player.weapon = {
+        ...prototype,
+        name: weaponData.name,
+        // Optional: Add small bonus based on theme?
+    };
+
+    if (weaponData.theme === 'Altın') player.weapon.damage += 5;
+    if (weaponData.theme === 'İmparator') player.weapon.fireRate *= 0.9;
+
+    player.speed = player.weapon.playerSpeed;
+    selectedClass = protoKey; // Sync with class selection if needed
+}
+
+// Hook into existing init
+initStore();

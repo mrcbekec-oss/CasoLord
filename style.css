@@ -785,3 +785,156 @@ footer {
         left: 10px;
     }
 }
+
+/* ===================== STORE & BOX STYLES ===================== */
+.store-btn {
+    background: linear-gradient(135deg, #ffd700, #b8860b) !important;
+    color: #000 !important;
+    margin-top: 10px;
+}
+
+.store-content {
+    border-color: #ffd700 !important;
+}
+
+.store-title {
+    font-family: var(--font-heading);
+    color: #ffd700;
+    font-size: 2.5rem;
+    text-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+}
+
+#store-points {
+    display: inline-block;
+    padding: 8px 20px;
+    border-radius: 20px;
+    color: #ffd700;
+    border: 1px solid #ffd700;
+    margin-top: 10px;
+    font-weight: bold;
+}
+
+.box-card {
+    cursor: default;
+}
+
+.box-visual {
+    font-size: 4rem;
+    margin-bottom: 20px;
+    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.2));
+    transition: transform 0.3s;
+}
+
+.box-card:hover .box-visual {
+    transform: scale(1.2) rotate(5deg);
+}
+
+.bronze {
+    border-color: #cd7f32 !important;
+}
+
+.silver {
+    border-color: #c0c0c0 !important;
+}
+
+.gold {
+    border-color: #ffd700 !important;
+}
+
+.buy-box-btn {
+    padding: 12px;
+    border: none;
+    border-radius: 6px;
+    color: #000;
+    font-weight: 900;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-family: var(--font-heading);
+    text-transform: uppercase;
+}
+
+.bronze .buy-box-btn {
+    background: #cd7f32;
+}
+
+.silver .buy-box-btn {
+    background: #c0c0c0;
+}
+
+.gold .buy-box-btn {
+    background: #ffd700;
+}
+
+.buy-box-btn:hover {
+    filter: brightness(1.2);
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+}
+
+/* Opening Animation */
+#open-animation-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+    backdrop-filter: blur(20px);
+}
+
+.opening-box {
+    font-size: 8rem;
+    animation: openShake 0.5s infinite;
+}
+
+@keyframes openShake {
+    0% {
+        transform: rotate(0deg) scale(1.5);
+    }
+
+    25% {
+        transform: rotate(10deg) scale(1.6);
+    }
+
+    50% {
+        transform: rotate(0deg) scale(1.5);
+    }
+
+    75% {
+        transform: rotate(-10deg) scale(1.6);
+    }
+
+    100% {
+        transform: rotate(0deg) scale(1.5);
+    }
+}
+
+#reward-name {
+    margin-top: 30px;
+    font-size: 2rem;
+    color: #fff;
+    text-shadow: 0 0 15px var(--accent-blue);
+    font-family: var(--font-heading);
+}
+
+/* Collection Section */
+.active-weapon {
+    border-color: #ffd700 !important;
+    color: #ffd700 !important;
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+    font-weight: bold;
+}
+
+.teammate {
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.teammate:hover {
+    background: rgba(0, 229, 255, 0.15);
+    border-color: var(--accent-blue);
+}
