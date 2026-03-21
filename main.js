@@ -2021,28 +2021,17 @@ function confirmName() {
     }
 })();
 
-// Autocomplete name if exists / Skip name screen
-(function () {
-    const savedName = localStorage.getItem('playerName');
-    if (savedName) {
-        playerName = savedName;
-        const nameInput = document.getElementById('name-input');
-        if (nameInput) nameInput.value = savedName;
-        const nameScreen = document.getElementById('name-screen');
-        if (nameScreen) nameScreen.classList.add('hidden');
-        const menuOverlayEl = document.getElementById('menu-overlay');
-        if (menuOverlayEl) menuOverlayEl.classList.remove('hidden');
-
-        // Final check: if user is banned with this name, show screen again
-        if (checkBan()) {
-            if (nameScreen) nameScreen.classList.remove('hidden');
-            if (menuOverlayEl) menuOverlayEl.classList.add('hidden');
-        }
-        updateHUD();
-    }
-})();
 // ===================== STORE & INVENTORY LOGIC =====================
-let inventory = JSON.parse(localStorage.getItem('weaponInventory')) || [{ id: 'DEFAULT', name: 'Standart Silah' }];
+let inventory = [{ id: 'DEFAULT', name: 'Standart Silah' }];
+try {
+    const savedInventory = localStorage.getItem('weaponInventory');
+    if (savedInventory) {
+        inventory = JSON.parse(savedInventory);
+    }
+} catch (e) {
+    console.error("Inventory error:", e);
+}
+
 let activeWeaponId = localStorage.getItem('activeWeaponId') || 'DEFAULT';
 
 const STORE_THEMES = {
@@ -2054,28 +2043,33 @@ const STORE_THEMES = {
 const BASE_WEAPON_TYPES = ['Tabanca', 'Sniper', 'Makineli', 'AK-47'];
 
 function initStore() {
-    const storeBtn = document.getElementById('store-btn');
-    const storeModal = document.getElementById('store-modal');
-    const closeStore = document.getElementById('close-store');
-    const buyBoxBtns = document.querySelectorAll('.buy-box-btn');
+    try {
+        const storeBtn = document.getElementById('store-btn');
+        const storeModal = document.getElementById('store-modal');
+        const closeStore = document.getElementById('close-store');
+        const buyBoxBtns = document.querySelectorAll('.buy-box-btn');
 
-    if (storeBtn) {
-        storeBtn.onclick = () => {
-            storeModal.classList.remove('hidden');
-            document.getElementById('current-tl').innerText = totalPoints;
-        };
+        if (storeBtn) {
+            storeBtn.onclick = () => {
+                if (storeModal) storeModal.classList.remove('hidden');
+                const tlSpan = document.getElementById('current-tl');
+                if (tlSpan) tlSpan.innerText = totalPoints;
+            };
+        }
+
+        if (closeStore && storeModal) {
+            closeStore.onclick = () => storeModal.classList.add('hidden');
+        }
+
+        buyBoxBtns.forEach(btn => {
+            btn.onclick = () => openBox(btn.dataset.box);
+        });
+
+        updateCollectionUI();
+        applyActiveWeapon();
+    } catch (e) {
+        console.error("Store init crash:", e);
     }
-
-    if (closeStore) {
-        closeStore.onclick = () => storeModal.classList.add('hidden');
-    }
-
-    buyBoxBtns.forEach(btn => {
-        btn.onclick = () => openBox(btn.dataset.box);
-    });
-
-    updateCollectionUI();
-    applyActiveWeapon();
 }
 
 function openBox(type) {
@@ -2088,13 +2082,14 @@ function openBox(type) {
 
     totalPoints -= cost;
     localStorage.setItem('totalPoints', totalPoints);
-    document.getElementById('current-tl').innerText = totalPoints;
+    const tlSpan = document.getElementById('current-tl');
+    if (tlSpan) tlSpan.innerText = totalPoints;
     updateHUD();
 
     const overlay = document.getElementById('open-animation-overlay');
     const rewardText = document.getElementById('reward-name');
-    overlay.classList.remove('hidden');
-    rewardText.innerText = "Kutu Açılıyor...";
+    if (overlay) overlay.classList.remove('hidden');
+    if (rewardText) rewardText.innerText = "Kutu Açılıyor...";
 
     setTimeout(() => {
         const themeList = STORE_THEMES[type];
@@ -2114,11 +2109,11 @@ function openBox(type) {
         inventory.push(newWeapon);
         localStorage.setItem('weaponInventory', JSON.stringify(inventory));
 
-        rewardText.innerHTML = `TEBRİKLER!<br><span style="color: #ffd700">${weaponName}</span> Kazandın!`;
+        if (rewardText) rewardText.innerHTML = `TEBRİKLER!<br><span style="color: #ffd700">${weaponName}</span> Kazandın!`;
         playSound(800, 'square', 0.5, 0.2, false);
 
         setTimeout(() => {
-            overlay.classList.add('hidden');
+            if (overlay) overlay.classList.add('hidden');
             updateCollectionUI();
         }, 3000);
     }, 2000);
@@ -2144,29 +2139,62 @@ function selectInventoryWeapon(id) {
 }
 
 function applyActiveWeapon() {
-    const weaponData = inventory.find(w => w.id === activeWeaponId) || inventory[0];
+    try {
+        const weaponData = inventory.find(w => w.id === activeWeaponId) || inventory[0];
+        if (!weaponData) return;
 
-    // Map baseType to existing WEAPONS prototypes
-    let protoKey = 'DEFAULT';
-    if (weaponData.baseType === 'SNIPER') protoKey = 'SNIPER';
-    else if (weaponData.baseType === 'MAKINELI') protoKey = 'MACHINE_GUN';
-    else if (weaponData.baseType === 'AK-47') protoKey = 'AK47';
+        let protoKey = 'DEFAULT';
+        if (weaponData.baseType === 'SNIPER') protoKey = 'SNIPER';
+        else if (weaponData.baseType === 'MAKINELI') protoKey = 'MACHINE_GUN';
+        else if (weaponData.baseType === 'AK-47') protoKey = 'AK47';
 
-    const prototype = WEAPONS[protoKey];
-
-    // Create a specialized weapon object
-    player.weapon = {
-        ...prototype,
-        name: weaponData.name,
-        // Optional: Add small bonus based on theme?
-    };
-
-    if (weaponData.theme === 'Altın') player.weapon.damage += 5;
-    if (weaponData.theme === 'İmparator') player.weapon.fireRate *= 0.9;
-
-    player.speed = player.weapon.playerSpeed;
-    selectedClass = protoKey; // Sync with class selection if needed
+        const prototype = WEAPONS[protoKey];
+        if (prototype) {
+            player.weapon = { ...prototype, name: weaponData.name };
+            if (weaponData.theme === 'Altın') player.weapon.damage += 5;
+            if (weaponData.theme === 'İmparator') player.weapon.fireRate *= 0.9;
+            player.speed = player.weapon.playerSpeed;
+            selectedClass = protoKey;
+        }
+    } catch (e) {
+        console.error("Weapon apply crash:", e);
+    }
 }
 
-// Hook into existing init
-initStore();
+// Master Initialization Sequence
+function masterInit() {
+    try {
+        initStore();
+
+        const savedName = localStorage.getItem('playerName');
+        const nameScreen = document.getElementById('name-screen');
+        const menuOverlayEl = document.getElementById('menu-overlay');
+
+        if (savedName) {
+            playerName = savedName;
+            const nameInput = document.getElementById('name-input');
+            if (nameInput) nameInput.value = savedName;
+
+            if (nameScreen) nameScreen.classList.add('hidden');
+            if (menuOverlayEl) menuOverlayEl.classList.remove('hidden');
+
+            if (checkBan()) {
+                if (nameScreen) nameScreen.classList.remove('hidden');
+                if (menuOverlayEl) menuOverlayEl.classList.add('hidden');
+            }
+        } else {
+            // No saved name, show name screen
+            if (nameScreen) nameScreen.classList.remove('hidden');
+            if (menuOverlayEl) menuOverlayEl.classList.add('hidden');
+        }
+        updateHUD();
+    } catch (e) {
+        console.error("Master Init Failure:", e);
+        // Emergency fallback: show name screen
+        const ns = document.getElementById('name-screen');
+        if (ns) ns.classList.remove('hidden');
+    }
+}
+
+// Start everything
+masterInit();
