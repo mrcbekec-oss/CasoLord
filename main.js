@@ -911,11 +911,19 @@ function update(deltaTime) {
     if (player.shieldTimer > 0) player.shieldTimer -= deltaTime;
     // Player Respawn Logic
     if (player.isDead) {
-        player.respawnTimer -= deltaTime;
+        player.respawnTimer = Math.max(0, player.respawnTimer - deltaTime);
 
         // Update death screen timer if visible
         const timerUI = document.getElementById('respawn-timer-ui');
-        if (timerUI) timerUI.innerText = Math.ceil(player.respawnTimer / 1000);
+        if (timerUI) {
+            if (TEAMS[player.teamId].isEliminated) {
+                // Get the parent container (respawn-line) and set its text
+                const respawnLine = timerUI.parentElement;
+                if (respawnLine) respawnLine.innerText = "TAKIMIN ELENDİ!";
+            } else {
+                timerUI.innerText = Math.ceil(player.respawnTimer / 1000);
+            }
+        }
 
         if (player.respawnTimer <= 0 && !TEAMS[player.teamId].isEliminated) {
             player.isDead = false;
@@ -1225,8 +1233,19 @@ function victory(winningTeamId) {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const offsetX = player.x - canvas.width / 2 + (Math.random() - 0.5) * screenShake;
-    const offsetY = player.y - canvas.height / 2 + (Math.random() - 0.5) * screenShake;
+    const isMobile = deviceMode === 'MOBILE';
+    const zoom = isMobile ? 1.3 : 1.0;
+
+    ctx.save();
+    // Centered scaling
+    if (isMobile) {
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.scale(zoom, zoom);
+        ctx.translate(-canvas.width / 2, -canvas.height / 2);
+    }
+
+    const offsetX = player.x - (canvas.width / (2 * zoom)) + (Math.random() - 0.5) * screenShake;
+    const offsetY = player.y - (canvas.height / (2 * zoom)) + (Math.random() - 0.5) * screenShake;
 
     const isVipMap = selectedMap === 'VIP';
 
@@ -1405,16 +1424,18 @@ function draw() {
     ctx.shadowBlur = 0;
 
 
-    // Lord Vignette Effect
     if (player.hasLordPackage && gameRunning) {
         ctx.save();
-        const grad = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, 0, canvas.width / 2, canvas.height / 2, canvas.width);
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, canvas.width);
         grad.addColorStop(0, 'rgba(255, 215, 0, 0)');
         grad.addColorStop(1, 'rgba(255, 215, 0, 0.08)');
         ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(-canvas.width / 2, -canvas.height / 2, canvas.width, canvas.height);
         ctx.restore();
     }
+
+    ctx.restore(); // Restore the global zoom/translate
 }
 
 function updateHUD() {
@@ -1912,14 +1933,8 @@ function confirmName() {
     }
 
     function updateMobileAngle(cx, cy) {
-        const rect = canvas.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        const dx = cx - centerX;
-        const dy = cy - centerY;
-        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
-            player.angle = Math.atan2(dy, dx);
-        }
+        // Character no longer rotates instantly with pointing.
+        // Rotation is handled by relative dragging now.
     }
 
     joystickBase.addEventListener('touchstart', e => {
@@ -1982,20 +1997,21 @@ function confirmName() {
 
     let isMobileActionActive = false;
 
-    // Mobile look (drag on canvas area outside joystick)
+    // Mobile look (DRAG to look)
     let lookTouchId = null;
-    let lastLookX = 0, lastLookY = 0;
+    let lastLookX = 0;
 
     canvas.addEventListener('touchstart', e => {
+        if (deviceMode !== 'MOBILE') return;
         e.preventDefault();
         const t = e.changedTouches[0];
         lookTouchId = t.identifier;
-        updateMobileAngle(t.clientX, t.clientY);
+        lastLookX = t.clientX;
+
         // Also trigger fire on tap
         if (gameRunning && !player.isDead && player.currentSlot === 1) {
             const now = Date.now();
             if (now - lastShootTime >= player.weapon.fireRate) {
-                // Shoot toward current angle
                 let weapon = player.weapon;
                 if (player.hasLordPackage && weapon !== WEAPONS.GOD_GUN) weapon = WEAPONS.AK47;
                 let dmg = weapon.damage;
@@ -2011,10 +2027,13 @@ function confirmName() {
     }, { passive: false });
 
     canvas.addEventListener('touchmove', e => {
+        if (deviceMode !== 'MOBILE' || lookTouchId === null) return;
         e.preventDefault();
         for (const t of e.changedTouches) {
             if (t.identifier === lookTouchId) {
-                updateMobileAngle(t.clientX, t.clientY);
+                const deltaX = t.clientX - lastLookX;
+                player.angle += deltaX * 0.007; // Sensitivity for drag
+                lastLookX = t.clientX;
                 break;
             }
         }
@@ -2037,7 +2056,8 @@ function confirmName() {
             e.stopPropagation();
             if (!gameRunning || player.isDead) return;
             isMobileActionActive = true;
-            updateMobileAngle(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+
+            // Just shoot, don't update angle here as it might jump
             let weapon = player.weapon;
             if (player.hasLordPackage && weapon !== WEAPONS.GOD_GUN) weapon = WEAPONS.AK47;
             const now = Date.now();
@@ -2057,7 +2077,8 @@ function confirmName() {
     if (fireBtnEl) {
         fireBtnEl.addEventListener('touchmove', e => {
             e.stopPropagation();
-            updateMobileAngle(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+            // Optional: allow dragging the fire button to fine-tune aim? 
+            // For now, let's keep it simple.
         }, { passive: false });
         fireBtnEl.addEventListener('touchend', e => {
             isMobileActionActive = false;
