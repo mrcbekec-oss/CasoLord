@@ -1840,22 +1840,43 @@ function selectDevice(mode) {
     document.getElementById('btn-mobile').classList.toggle('active', mode === 'MOBILE');
 }
 
+function openDeviceMenu() {
+    document.getElementById('name-screen').classList.remove('hidden');
+    document.getElementById('menu-overlay').classList.add('hidden');
+    // If name screen is opened while game is running, we might want to pause or just overlay it.
+    // Given the current architecture, overlaying is safest.
+}
+
 function confirmName() {
     const input = document.getElementById('name-input');
     playerName = input.value.trim() || 'Lord_' + Math.floor(Math.random() * 999);
     localStorage.setItem('playerName', playerName);
-
-    // Ensure only one Miro/Çaşo (User's special request)
-    // Since it's local, we just allow the player to be whoever they want.
 
     document.getElementById('name-screen').classList.add('hidden');
 
     // Ban check
     if (checkBan()) return;
 
-    // Hide name screen, show menu
-    document.getElementById('name-screen').classList.add('hidden');
-    document.getElementById('menu-overlay').classList.remove('hidden');
+    if (!gameRunning) {
+        document.getElementById('menu-overlay').classList.remove('hidden');
+    } else {
+        // If game is running, update the UI for the new device mode
+        const mobileCtrls = document.getElementById('mobile-controls');
+        if (mobileCtrls) {
+            if (deviceMode === 'MOBILE') {
+                mobileCtrls.classList.remove('hidden');
+            } else {
+                mobileCtrls.classList.add('hidden');
+            }
+        }
+
+        const hint = document.getElementById('controls-hint');
+        if (hint) {
+            hint.innerHTML = deviceMode === 'MOBILE'
+                ? '<p>Sol Joystick: Hareket | Sağ Butonlar: Ateş/Bıçak/Bomba/Roket</p>'
+                : '<p>WASD: Hareket | Mouse: Nişan | Sol Tık: Ateş</p>';
+        }
+    }
     updateHUD();
 }
 
