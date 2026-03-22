@@ -147,6 +147,14 @@ const WORLD_WIDTH = 1000;
 const WORLD_HEIGHT = 1000;
 
 // Player Settings
+const WEAPON_IMAGES = {
+    'STANDART': 'https://static.wikia.nocookie.net/cswiki/images/f/f0/P250_Skin_Sand_Dune.png',
+    'SNIPER': 'https://www.csgotemp.com/img/weapons/awp.png',
+    'MAKİNELİ': 'https://static.wikia.nocookie.net/cswiki/images/1/1b/Mp5sd_inventory.png',
+    'AK-47': 'https://static.wikia.nocookie.net/cswiki/images/2/23/Ak47_inventory.png',
+    'Tabanca': 'https://static.wikia.nocookie.net/cswiki/images/f/f0/P250_Sand_Dune.png'
+};
+
 const player = {
     x: WORLD_WIDTH / 2,
     y: WORLD_HEIGHT / 2,
@@ -274,8 +282,7 @@ function resolveWallCollision(entity) {
         if (distSq < entity.radius * entity.radius) {
             const dist = Math.sqrt(distSq);
             if (dist < 0.01) {
-                // If deep inside, push toward world center
-                entity.x += (entity.x < WORLD_WIDTH / 2) ? 1 : -1;
+                entity.x += (entity.x < WORLD_WIDTH / 2) ? 2 : -2;
                 continue;
             }
             const overlap = entity.radius - dist;
@@ -288,15 +295,16 @@ function resolveWallCollision(entity) {
 function getRandomSafePosition(radius) {
     let x, y;
     let attempts = 0;
-    while (attempts < 200) {
-        x = radius + Math.random() * (WORLD_WIDTH - radius * 2);
-        y = radius + Math.random() * (WORLD_HEIGHT - radius * 2);
-        if (!checkWallCollision(x, y, radius + 10)) { // Extra padding for safety
+    while (attempts < 500) {
+        x = radius + 20 + Math.random() * (WORLD_WIDTH - radius * 2 - 40);
+        y = radius + 20 + Math.random() * (WORLD_HEIGHT - radius * 2 - 40);
+        if (!checkWallCollision(x, y, radius + 20)) {
             return { x, y };
         }
         attempts++;
     }
-    return { x: Math.random() * WORLD_WIDTH, y: Math.random() * WORLD_HEIGHT };
+    // Fallback to a guaranteed safe spot (center of room 2)
+    return { x: 500, y: 500 };
 }
 let selectedClass = 'DEFAULT';
 player.weapon = WEAPONS[selectedClass];
@@ -809,33 +817,57 @@ class Bot {
             }
         }
 
-        // Apply dodge with wall checks
-        if (!checkWallCollision(this.x + dodgeX, this.y, this.radius)) this.x += dodgeX;
-        if (!checkWallCollision(this.x, this.y + dodgeY, this.radius)) this.y += dodgeY;
+        // Smooth rotation interpolation
+        let angleDiff = this.targetAngle - this.angle;
+        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+        this.angle += angleDiff * 0.15;
 
-        // Smooth rotation
-        this.angle += (this.targetAngle - this.angle) * 0.1;
+        const botSpeed = this.speed * (deltaTime / 16.66); // Normalized to 60fps
 
         if (this.state === 'PATROL') {
-            const botSpeed = this.speed; // Reverted to full speed
             const moveX = Math.cos(this.angle) * botSpeed;
             const moveY = Math.sin(this.angle) * botSpeed;
 
             if (!checkWallCollision(this.x + moveX, this.y, this.radius)) {
                 this.x += moveX;
             } else {
-                this.angle += Math.PI / 2; // Turn on hit
+                this.targetAngle += Math.PI / 2;
             }
             if (!checkWallCollision(this.x, this.y + moveY, this.radius)) {
                 this.y += moveY;
             } else {
-                this.angle += Math.PI / 2; // Turn on hit
+                this.targetAngle += Math.PI / 2;
             }
+        } else if (this.state === 'ATTACK') {
+            // Tactical movement: Maintain distance and move slightly sideways
+            const distToEnemy = Math.sqrt((nearestEnemy.x - this.x) ** 2 + (nearestEnemy.y - this.y) ** 2);
+            let moveX = 0, moveY = 0;
+
+            if (distToEnemy < 200) {
+                moveX = -Math.cos(this.targetAngle) * botSpeed * 0.5;
+                moveY = -Math.sin(this.targetAngle) * botSpeed * 0.5;
+            } else if (distToEnemy > 350) {
+                moveX = Math.cos(this.targetAngle) * botSpeed * 0.8;
+                moveY = Math.sin(this.targetAngle) * botSpeed * 0.8;
+            }
+
+            // Side-stepping
+            const sideAngle = this.targetAngle + Math.PI / 2;
+            moveX += Math.cos(sideAngle) * Math.sin(Date.now() / 500) * botSpeed * 0.3;
+            moveY += Math.sin(sideAngle) * Math.sin(Date.now() / 500) * botSpeed * 0.3;
+
+            if (!checkWallCollision(this.x + moveX, this.y, this.radius)) this.x += moveX;
+            if (!checkWallCollision(this.x, this.y + moveY, this.radius)) this.y += moveY;
         }
 
-        // Bounds (Clamping instead of wrapping to respect boundary walls)
-        this.x = Math.max(0, Math.min(WORLD_WIDTH, this.x));
-        this.y = Math.max(0, Math.min(WORLD_HEIGHT, this.y));
+        // Apply dodge with wall checks
+        if (!checkWallCollision(this.x + dodgeX * (deltaTime / 16), this.y, this.radius)) this.x += dodgeX * (deltaTime / 16);
+        if (!checkWallCollision(this.x, this.y + dodgeY * (deltaTime / 16), this.radius)) this.y += dodgeY * (deltaTime / 16);
+
+        // Bounds
+        this.x = Math.max(this.radius, Math.min(WORLD_WIDTH - this.radius, this.x));
+        this.y = Math.max(this.radius, Math.min(WORLD_HEIGHT - this.radius, this.y));
 
         resolveWallCollision(this);
     }
@@ -1182,15 +1214,28 @@ function showDeathScreen() {
     const ds = document.getElementById('death-screen');
     if (!ds) return;
 
-    const killerBot = entities.find(e => e.id === lastKillerId); // Use ID for exact bot
+    const killerBot = entities.find(e => e.id === lastKillerId);
     const killerColor = killerBot ? killerBot.color : "#ff3e3e";
+    const killerWeaponName = lastKillerWeapon || "Silah";
 
     document.getElementById('killer-name').innerText = lastKillerName || "Bilinmeyen";
-    document.getElementById('killer-weapon-name').innerText = lastKillerWeapon || "Silah";
+    document.getElementById('killer-weapon-name').innerText = killerWeaponName;
     document.getElementById('stats-taken-hits').innerText = hitsTakenFromCurrentKiller;
     document.getElementById('stats-taken-dmg').innerText = Math.round(damageTakenFromCurrentKiller);
     document.getElementById('stats-dealt-hits').innerText = hitsDealtToCurrentKiller;
     document.getElementById('stats-dealt-dmg').innerText = Math.round(damageDealtToCurrentKiller);
+
+    // Update Bars (capped at 100% width)
+    const barTaken = document.getElementById('bar-taken');
+    if (barTaken) barTaken.style.width = Math.min(100, (damageTakenFromCurrentKiller / 100) * 100) + '%';
+    const barDealt = document.getElementById('bar-dealt');
+    if (barDealt) barDealt.style.width = Math.min(100, (damageDealtToCurrentKiller / 100) * 100) + '%';
+
+    // Weapon Image Mapping
+    const weaponImg = document.getElementById('killer-weapon-img');
+    if (weaponImg) {
+        weaponImg.src = WEAPON_IMAGES[killerWeaponName] || WEAPON_IMAGES['STANDART'];
+    }
 
     // Style adjustments
     const killerAvatar = document.querySelector('.killer-avatar img');
