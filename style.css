@@ -13,7 +13,6 @@
     padding: 0;
     box-sizing: border-box;
     -webkit-tap-highlight-color: transparent;
-    touch-action: none;
 }
 
 body {
@@ -40,6 +39,7 @@ canvas {
     position: absolute;
     top: 0;
     left: 0;
+    touch-action: none;
 }
 
 .glass {
@@ -167,6 +167,8 @@ canvas {
     border: 1px solid var(--accent-blue);
     scrollbar-width: thin;
     scrollbar-color: var(--accent-blue) #000;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
 }
 
 .modal-close-btn {
@@ -197,7 +199,7 @@ canvas {
 
 .packages-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
     gap: 25px;
     margin-top: 40px;
 }
@@ -524,6 +526,8 @@ canvas {
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--accent-blue) #000;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
 }
 
 #menu-overlay h1.menu-title {
@@ -655,6 +659,7 @@ footer {
     align-items: center;
     justify-content: center;
     pointer-events: all;
+    touch-action: none;
 }
 
 #joystick-base {
