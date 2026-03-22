@@ -342,7 +342,7 @@ window.addEventListener('keydown', e => {
 
 // Bots
 const entities = [];
-const NUM_BOTS = 9; // 1 Player + 9 Bots = 10 total (2 per team)
+const NUM_BOTS = 14;
 const RANKS = ['Asker', 'Onbaşı', 'Çavuş', 'Teğmen', 'Yüzbaşı', 'Binbaşı', 'Albay', 'Kral'];
 
 class Bullet {
@@ -389,7 +389,7 @@ class Bullet {
 const bullets = [];
 
 class Bomb {
-    constructor(x, y, angle, color, owner, teamId) {
+    constructor(x, y, angle, color, owner, teamId, ownerId = null) {
         this.x = x;
         this.y = y;
         this.angle = angle;
@@ -397,6 +397,7 @@ class Bomb {
         this.color = color;
         this.owner = owner;
         this.teamId = teamId;
+        this.ownerId = ownerId;
         this.radius = 6;
         this.distance = 0;
         this.maxDistance = 300; // 30cm limit
@@ -429,7 +430,18 @@ class Bomb {
             const dist = Math.sqrt((this.x - player.x) ** 2 + (this.y - player.y) ** 2);
             if (dist < this.splashRadius) {
                 player.health -= this.splashDamage * (1 - dist / this.splashRadius);
-                if (player.health <= 0) { player.health = 0; player.isDead = true; player.respawnTimer = 10000; checkTeamEliminated(player.teamId); }
+                if (player.health <= 0) {
+                    player.health = 0;
+                    player.isDead = true;
+                    player.respawnTimer = 10000;
+                    const killer = entities.find(e => e.id === this.ownerId);
+                    lastKillerName = killer?.name || "Bilinmeyen";
+                    lastKillerWeapon = "BOMBA";
+                    lastKillerId = this.ownerId;
+                    showDeathScreen();
+                    addKillFeed(`${lastKillerName} seni BOMBA ile patlattı`);
+                    checkTeamEliminated(player.teamId);
+                }
                 updateHUD();
             }
         }
@@ -440,8 +452,15 @@ class Bomb {
             if (dist < this.splashRadius) {
                 bot.health -= this.splashDamage * (1 - dist / this.splashRadius);
                 if (bot.health <= 0) {
-                    bot.health = 0; bot.isDead = true; bot.respawnTimer = 10000; checkTeamEliminated(bot.teamId);
-                    if (this.owner === 'player') { kills++; addKillFeed(`You bombed ${bot.name}`); }
+                    if (this.owner === 'player') {
+                        bot.health = 0; bot.isDead = true; bot.respawnTimer = 10000; checkTeamEliminated(bot.teamId);
+                        kills++;
+                        addKillFeed(`You bombed ${bot.name} with BOMBA`);
+                    } else {
+                        bot.health = 0; bot.isDead = true; bot.respawnTimer = 10000; checkTeamEliminated(bot.teamId);
+                        const killer = entities.find(e => e.id === this.ownerId);
+                        addKillFeed(`${killer?.name || 'Birisi'} ${bot.name} adlı oyuncuyu BOMBA ile patlattı`);
+                    }
                     updateHUD();
                 }
             }
@@ -471,7 +490,7 @@ class Bomb {
 const bombs = [];
 
 class Rocket {
-    constructor(x, y, angle, color, owner, teamId) {
+    constructor(x, y, angle, color, owner, teamId, ownerId = null) {
         this.x = x;
         this.y = y;
         this.angle = angle;
@@ -479,6 +498,7 @@ class Rocket {
         this.color = color;
         this.owner = owner;
         this.teamId = teamId;
+        this.ownerId = ownerId;
         this.radius = 8;
         this.distance = 0;
         this.maxDistance = 1000;
@@ -509,7 +529,18 @@ class Rocket {
                 let damage = this.splashDamage * (1 - dist / this.splashRadius);
                 if (player.hasLordPackage) damage *= 0.5; // Damage resistance
                 player.health -= damage;
-                if (player.health <= 0) { player.health = 0; player.isDead = true; player.respawnTimer = 10000; checkTeamEliminated(player.teamId); }
+                if (player.health <= 0) {
+                    player.health = 0;
+                    player.isDead = true;
+                    player.respawnTimer = 10000;
+                    const killer = entities.find(e => e.id === this.ownerId);
+                    lastKillerName = killer?.name || "Bilinmeyen";
+                    lastKillerWeapon = "ROKET";
+                    lastKillerId = this.ownerId;
+                    showDeathScreen();
+                    addKillFeed(`${lastKillerName} seni ROKET ile havaya uçurdu`);
+                    checkTeamEliminated(player.teamId);
+                }
                 updateHUD();
             }
         }
@@ -519,8 +550,15 @@ class Rocket {
             if (dist < this.splashRadius) {
                 bot.health -= this.splashDamage * (1 - dist / this.splashRadius);
                 if (bot.health <= 0) {
-                    bot.health = 0; bot.isDead = true; bot.respawnTimer = 10000; checkTeamEliminated(bot.teamId);
-                    if (this.owner === 'player') { kills++; addKillFeed(`You rocketed ${bot.name}`); }
+                    if (this.owner === 'player') {
+                        bot.health = 0; bot.isDead = true; bot.respawnTimer = 10000; checkTeamEliminated(bot.teamId);
+                        kills++;
+                        addKillFeed(`You rocketed ${bot.name} with ROKET`);
+                    } else {
+                        bot.health = 0; bot.isDead = true; bot.respawnTimer = 10000; checkTeamEliminated(bot.teamId);
+                        const killer = entities.find(e => e.id === this.ownerId);
+                        addKillFeed(`${killer?.name || 'Birisi'} ${bot.name} adlı oyuncuyu ROKET ile havaya uçurdu`);
+                    }
                     updateHUD();
                 }
             }
@@ -787,13 +825,14 @@ class Bot {
                         if (nearestEnemy.health <= 0) {
                             nearestEnemy.isDead = true;
                             nearestEnemy.respawnTimer = 10000;
+                            addKillFeed(`${this.name}, ${nearestEnemy.name} adlı oyuncuyu BIÇAK ile eledi`);
                             checkTeamEliminated(nearestEnemy.teamId);
                         }
                     }
                     this.knifeTimer = 0;
                 } else if (distToEnemy > 400 && this.rocketTimer > 120 && Math.random() < 0.2) {
                     // Rocket Attack
-                    rockets.push(new Rocket(this.x, this.y, shotAngle, this.color, 'bot', this.teamId));
+                    rockets.push(new Rocket(this.x, this.y, shotAngle, this.color, 'bot', this.teamId, this.id));
                     this.rocketTimer = 0;
                 } else if (this.shootTimer > fireThreshold) {
                     // VIP Bot Shooting (Faster bullets)
@@ -928,7 +967,7 @@ for (let i = 0; i < NUM_BOTS; i++) {
     let teamId;
     if (i < 2) teamId = 0;
     else teamId = Math.floor((i - 2) / 3) + 1;
-    entities.push(new Bot(teamId, i));
+    entities.push(new Bot(teamId, `bot_${i}`));
 }
 
 function update(deltaTime) {
@@ -1061,7 +1100,7 @@ function update(deltaTime) {
                     player.health = 0;
                     player.isDead = true;
                     showDeathScreen();
-                    player.respawnTimer = 10000;
+                    addKillFeed(`${lastKillerName} seni ${lastKillerWeapon} ile eledi`);
                     checkTeamEliminated(player.teamId);
                 }
                 continue;
@@ -1101,9 +1140,11 @@ function update(deltaTime) {
 
                     if (b.owner === 'player') {
                         kills++;
-                        addKillFeed(`You eliminated ${bot.name}`);
+                        addKillFeed(`${bot.name} adlı oyuncuyu ${player.weapon.name} ile eledin`);
                     } else {
-                        addKillFeed(`${entities.find(e => e.teamId === b.teamId)?.name || 'Someone'} eliminated ${bot.name}`);
+                        const killer = entities.find(e => e.id === b.ownerId);
+                        const killerWeapon = killer?.weapon?.name || "Tabanca";
+                        addKillFeed(`${killer?.name || 'Birisi'} ${bot.name} adlı oyuncuyu ${killerWeapon} ile eledi`);
                     }
                     updateHUD();
                 }
@@ -1835,6 +1876,7 @@ function useKnife() {
                 bot.respawnTimer = 10000;
                 kills++;
                 updateHUD();
+                addKillFeed(`${bot.name} adlı oyuncuyu BIÇAK ile eledin`);
                 checkTeamEliminated(bot.teamId);
             }
         }
@@ -1848,7 +1890,7 @@ function useBomb() {
     const now = Date.now();
     if (now - lastBombTime < 3000) return;
     lastBombTime = now;
-    const b = new Bomb(player.x, player.y, player.angle, TEAMS[player.teamId].color, 'player', player.teamId);
+    const b = new Bomb(player.x, player.y, player.angle, TEAMS[player.teamId].color, 'player', player.teamId, 'player');
     bombs.push(b);
 }
 
@@ -1859,7 +1901,7 @@ function useRocket() {
     const fireRate = 1200; // Fast rockets
     if (now - lastShootTime < fireRate) return;
     lastShootTime = now;
-    const r = new Rocket(player.x, player.y, player.angle, TEAMS[player.teamId].color, 'player', player.teamId);
+    const r = new Rocket(player.x, player.y, player.angle, TEAMS[player.teamId].color, 'player', player.teamId, 'player');
     rockets.push(r);
 }
 
@@ -1899,7 +1941,8 @@ window.addEventListener('mousedown', (e) => {
                 'player',
                 player.teamId,
                 dmg,
-                weapon.bulletSpeed
+                weapon.bulletSpeed,
+                'player'
             );
             if (bullets.length < 100) bullets.push(b);
             playSound(400 + Math.random() * 100, 'square', 0.05, 0.05, false); // Shoot sound
@@ -2077,6 +2120,14 @@ function confirmName() {
         lookTouchId = t.identifier;
         lastLookX = t.clientX;
 
+        // Auto-aim on tap: Calculate angle from center to tap
+        const rect = canvas.getBoundingClientRect();
+        const screenX = rect.width / 2;
+        const screenY = rect.height / 2;
+        const tapX = t.clientX - rect.left;
+        const tapY = t.clientY - rect.top;
+        player.angle = Math.atan2(tapY - screenY, tapX - screenX);
+
         // Also trigger fire on tap
         if (gameRunning && !player.isDead && player.currentSlot === 1) {
             const now = Date.now();
@@ -2087,7 +2138,7 @@ function confirmName() {
                 if (player.hasLordPackage) dmg *= 1.5;
                 if (bullets.length < 100) {
                     bullets.push(new Bullet(player.x, player.y, player.angle,
-                        TEAMS[player.teamId].color, 'player', player.teamId, dmg, weapon.bulletSpeed));
+                        TEAMS[player.teamId].color, 'player', player.teamId, dmg, weapon.bulletSpeed, 'player'));
                 }
                 playSound(400 + Math.random() * 100, 'square', 0.05, 0.05, false);
                 lastShootTime = now;
@@ -2101,7 +2152,7 @@ function confirmName() {
         for (const t of e.changedTouches) {
             if (t.identifier === lookTouchId) {
                 const deltaX = t.clientX - lastLookX;
-                player.angle += deltaX * 0.007; // Sensitivity for drag
+                player.angle += deltaX * 0.012; // Increased sensitivity
                 lastLookX = t.clientX;
                 break;
             }
@@ -2135,7 +2186,7 @@ function confirmName() {
                 if (player.hasLordPackage) dmg *= 1.5;
                 if (bullets.length < 100) {
                     bullets.push(new Bullet(player.x, player.y, player.angle,
-                        TEAMS[player.teamId].color, 'player', player.teamId, dmg, weapon.bulletSpeed));
+                        TEAMS[player.teamId].color, 'player', player.teamId, dmg, weapon.bulletSpeed, 'player'));
                 }
                 playSound(400 + Math.random() * 100, 'square', 0.05, 0.05, false);
                 lastShootTime = now;
