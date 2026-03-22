@@ -1438,6 +1438,24 @@ function draw() {
     ctx.restore(); // Restore the global zoom/translate
 }
 
+function getPlayerRank() {
+    const lowerName = playerName.toLowerCase();
+    if (lowerName === "çaşo") return "👑 KURUCU";
+    if (lowerName === "miro") return "🛡️ MODERATÖR";
+
+    if (totalPoints >= 30) {
+        if (totalPoints >= 500) return 'KRAL';
+        if (totalPoints >= 400) return 'ALBAY';
+        if (totalPoints >= 300) return 'BİNBAŞI';
+        if (totalPoints >= 210) return 'YÜZBAŞI';
+        if (totalPoints >= 150) return 'TEĞMEN';
+        if (totalPoints >= 100) return 'ÇAVUŞ';
+        if (totalPoints >= 60) return 'ONBAŞI';
+        return 'ASKER';
+    }
+    return 'ACEMİ';
+}
+
 function updateHUD() {
     if (healthBar) healthBar.style.width = player.health + '%';
     if (killCounter) killCounter.innerText = `Kills: ${kills}`;
@@ -1446,6 +1464,12 @@ function updateHUD() {
     if (pointsSpan) pointsSpan.innerText = totalPoints;
     const storePointsSpan = document.getElementById('current-tl');
     if (storePointsSpan) storePointsSpan.innerText = totalPoints;
+
+    const currentRank = getPlayerRank();
+    const rankDisplay = document.getElementById('rank-display-menu');
+    if (rankDisplay) rankDisplay.innerText = currentRank;
+    const storeRankDisplay = document.getElementById('store-rank-display');
+    if (storeRankDisplay) storeRankDisplay.innerText = currentRank;
 
     const lowerName = (playerName || "").toLowerCase();
     const isGod = (lowerName === 'miro' || lowerName === 'çaşo');
@@ -2216,10 +2240,37 @@ function updateCollectionUI() {
     const list = document.getElementById('weapon-list');
     if (!list) return;
 
-    list.innerHTML = inventory.map(w => `
+    const lowerName = (playerName || "").toLowerCase();
+    const isGod = (lowerName === 'miro' || lowerName === 'çaşo');
+
+    let displayInventory = [...inventory];
+
+    if (isGod) {
+        // Add all legendary themes and base types for moderators if not present
+        const themes = ['Altın', 'İmparator', 'Ejder'];
+        const bases = ['TABANCA', 'SNIPER', 'MAKINELI', 'AK-47'];
+
+        bases.forEach(base => {
+            themes.forEach(theme => {
+                const name = `${base.charAt(0) + base.slice(1).toLowerCase()} ${theme} Silahı`;
+                const mockId = `god_${base}_${theme}`;
+                if (!displayInventory.find(w => w.id === mockId)) {
+                    displayInventory.push({
+                        id: mockId,
+                        name: name,
+                        baseType: base,
+                        theme: theme,
+                        isGodSkin: true
+                    });
+                }
+            });
+        });
+    }
+
+    list.innerHTML = displayInventory.map(w => `
         <span class="teammate ${activeWeaponId === w.id ? 'active-weapon' : ''}" 
               onclick="selectInventoryWeapon('${w.id}')">
-            ${w.name}
+            ${w.name} ${w.isGodSkin ? '✨' : ''}
         </span>
     `).join('');
 }
@@ -2227,14 +2278,29 @@ function updateCollectionUI() {
 function selectInventoryWeapon(id) {
     activeWeaponId = id;
     localStorage.setItem('activeWeaponId', id);
+
+    // If it's a god skin, we need to ensure it's "known" for applyActiveWeapon
+    // For now, we'll just let applyActiveWeapon handle the id prefix
     updateCollectionUI();
     applyActiveWeapon();
 }
 
 function applyActiveWeapon() {
     try {
-        const weaponData = inventory.find(w => w.id === activeWeaponId) || inventory[0];
-        if (!weaponData) return;
+        let weaponData = inventory.find(w => w.id === activeWeaponId);
+
+        // Handle God Skins (virtual skins for moderators)
+        if (!weaponData && activeWeaponId.startsWith('god_')) {
+            const parts = activeWeaponId.split('_');
+            weaponData = {
+                id: activeWeaponId,
+                baseType: parts[1],
+                theme: parts[2],
+                name: `${parts[1].charAt(0) + parts[1].slice(1).toLowerCase()} ${parts[2]} Silahı`
+            };
+        }
+
+        if (!weaponData) weaponData = inventory[0];
 
         let protoKey = 'DEFAULT';
         if (weaponData.baseType === 'SNIPER') protoKey = 'SNIPER';

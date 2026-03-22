@@ -171,6 +171,43 @@ canvas {
     -webkit-overflow-scrolling: touch;
 }
 
+#points-display {
+    padding: 15px 25px;
+    margin-bottom: 20px;
+    font-family: 'Rajdhani', sans-serif;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    align-items: center;
+}
+
+.points-row {
+    font-size: 1.5rem;
+    color: #ffd700;
+    font-weight: 700;
+}
+
+.rank-row {
+    font-size: 1.1rem;
+    color: #00e5ff;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.store-info-row {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+#store-points,
+#store-rank {
+    padding: 10px 20px;
+    font-weight: bold;
+}
+
 .modal-close-btn {
     position: absolute;
     top: 20px;
