@@ -1,3 +1,11 @@
+// Script execution starting...
+console.log("War Server Script Loading...");
+const scriptStartTimestamp = Date.now();
+
+// Update visual loading status
+const loadingStatus = document.getElementById('loading-status');
+if (loadingStatus) loadingStatus.innerText = "Kaynaklar Yükleniyor...";
+
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const startBtn = document.getElementById('start-btn');
@@ -2512,12 +2520,25 @@ function masterInit() {
         // Sync UI with auto-detected device mode
         selectDevice(deviceMode);
         updateHUD();
+
+        console.log("Master Init Complete. Time taken: " + (Date.now() - scriptStartTimestamp) + "ms");
+
+        // Remove loading screen
+        const loader = document.getElementById('loading-screen');
+        if (loader) {
+            loader.style.opacity = '0';
+            loader.style.transition = 'opacity 0.5s';
+            setTimeout(() => loader.remove(), 500);
+        }
     } catch (e) {
         console.error("Master Init Failure:", e);
         // Emergency fallback: show name screen and alert
         const ns = document.getElementById('name-screen');
-        if (ns) ns.classList.remove('hidden');
-        alert("Oyun başlatılırken bir hata oluştu. Lütfen sayfayı yenileyiniz. Hata: " + e.message);
+        if (ns) {
+            ns.classList.remove('hidden');
+            ns.style.backgroundColor = 'rgba(50, 0, 0, 0.9)'; // Visual hint that we are in fallback
+        }
+        alert("Oyun başlatılırken bir hata oluştu: " + e.message + "\nStack: " + e.stack);
     }
 }
 
