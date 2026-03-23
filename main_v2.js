@@ -1,5 +1,4 @@
 // Script execution starting...
-console.log("War Server Script Loading...");
 const scriptStartTimestamp = Date.now();
 
 // Update visual loading status
@@ -2521,8 +2520,6 @@ function masterInit() {
         selectDevice(deviceMode);
         updateHUD();
 
-        console.log("Master Init Complete. Time taken: " + (Date.now() - scriptStartTimestamp) + "ms");
-
         // Remove loading screen
         const loader = document.getElementById('loading-screen');
         if (loader) {
@@ -2532,13 +2529,11 @@ function masterInit() {
         }
     } catch (e) {
         console.error("Master Init Failure:", e);
-        // Emergency fallback: show name screen and alert
+        // Emergency fallback: show name screen
         const ns = document.getElementById('name-screen');
         if (ns) {
             ns.classList.remove('hidden');
-            ns.style.backgroundColor = 'rgba(50, 0, 0, 0.9)'; // Visual hint that we are in fallback
         }
-        alert("Oyun başlatılırken bir hata oluştu: " + e.message + "\nStack: " + e.stack);
     }
 }
 

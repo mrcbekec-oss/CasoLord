@@ -7,18 +7,7 @@
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Çağdaş Lord - War Server</title>
     <link rel="stylesheet" href="style.css">
-    <script>
-        // INLINE ERROR HANDLER (Before main script)
-        window.onerror = function (msg, url, lineNo, columnNo, error) {
-            var errInfo = "HATA: " + msg + "\nSatir: " + lineNo + "\nURL: " + url;
-            alert(errInfo);
-            var statusMsg = document.getElementById('loading-status');
-            if (statusMsg) statusMsg.innerText = "HATA OLUŞTU!";
-            return false;
-        };
-        console.log("HTML Error Handler Active");
-    </script>
-    <script src="main_v2.js?v=test_1" defer></script>
+    <script src="main_v2.js" defer></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -28,10 +17,9 @@
 
 <body>
     <div id="loading-screen"
-        style="position:fixed; top:0; left:0; width:100%; height:100%; background:red; color:white; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:10000; font-family: sans-serif;">
-        <div style="font-size:2rem; font-weight:bold; margin-bottom:20px;">TEST MODU: KIRMIZI EKRAN</div>
-        <div id="loading-status" style="font-size:1.5rem;">Hazırlanıyor...</div>
-        <div style="margin-top:20px; font-size:1rem;">Eğer bu kırmızıyı görüyorsan HTML çalışıyor demektir.</div>
+        style="position:fixed; top:0; left:0; width:100%; height:100%; background:#0a0a0c; color:#00e5ff; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:10000; font-family: sans-serif;">
+        <div style="font-size:2rem; margin-bottom:20px;">🎮 ÇAĞDAŞ LORD</div>
+        <div id="loading-status" style="font-size:1.2rem;">Yükleniyor...</div>
     </div>
 
     <div id="app">
