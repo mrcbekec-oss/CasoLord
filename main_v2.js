@@ -24,12 +24,33 @@ let lastKillerId = null;
 let playerName = '';
 let deviceMode = 'PC'; // 'PC' or 'MOBILE'
 
+// Auto-detect mobile based on screen width or user agent
+if (window.innerWidth < 1024 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+    deviceMode = 'MOBILE';
+}
+
+// Safe storage helper to prevent crashes in restricted environments
+const safeStorage = {
+    getItem: (key) => {
+        try { return localStorage.getItem(key); }
+        catch (e) { console.error("Storage access denied:", key); return null; }
+    },
+    setItem: (key, val) => {
+        try { localStorage.setItem(key, val); }
+        catch (e) { console.error("Storage write denied:", key); }
+    },
+    removeItem: (key) => {
+        try { localStorage.removeItem(key); }
+        catch (e) { console.error("Storage delete denied:", key); }
+    }
+};
+
 // Ban System (5 Strikes = 30 Minutes Ban)
 function checkBan() {
     const lowerName = playerName.toLowerCase();
     if (lowerName === 'miro' || lowerName === 'çaşo') return false;
 
-    const banUntil = localStorage.getItem('banUntil');
+    const banUntil = safeStorage.getItem('banUntil');
     if (banUntil) {
         const remaining = parseInt(banUntil) - Date.now();
         if (remaining > 0) {
@@ -38,8 +59,8 @@ function checkBan() {
             return true;
         } else {
             // Ban expired, reset strikes
-            localStorage.removeItem('banUntil');
-            localStorage.setItem('leaveCount', '0');
+            safeStorage.removeItem('banUntil');
+            safeStorage.setItem('leaveCount', '0');
         }
     }
     return false;
@@ -55,14 +76,14 @@ function recordLeave() {
         return;
     }
 
-    let leaveCount = parseInt(localStorage.getItem('leaveCount') || '0');
+    let leaveCount = parseInt(safeStorage.getItem('leaveCount') || '0');
     leaveCount++;
-    localStorage.setItem('leaveCount', leaveCount.toString());
+    safeStorage.setItem('leaveCount', leaveCount.toString());
 
     if (leaveCount >= 5) {
         const banTime = Date.now() + (30 * 60 * 1000); // 30 minutes
-        localStorage.setItem('banUntil', banTime);
-        localStorage.setItem('leaveCount', '0'); // Reset after ban is applied
+        safeStorage.setItem('banUntil', banTime);
+        safeStorage.setItem('leaveCount', '0'); // Reset after ban is applied
         alert("Üst üste 5 kez maçtan ayrıldın! 30 dakika boyunca yeni oyun açamazsın.");
     } else {
         alert(`Maçtan ayrıldın! (Uyarı: ${leaveCount}/5). 5 olunca 30 dakika ban yersin.`);
@@ -225,13 +246,13 @@ let selectedMap = 'NORMAL';
 let lastKnifeTime = 0;
 let lastBombTime = 0;
 
-let goldTrial = parseInt(localStorage.getItem('goldTrial'));
+let goldTrial = parseInt(safeStorage.getItem('goldTrial'));
 if (isNaN(goldTrial)) {
     goldTrial = 2; // Initial 2 match trial
-    localStorage.setItem('goldTrial', goldTrial);
+    safeStorage.setItem('goldTrial', goldTrial);
 }
 
-let totalPoints = parseInt(localStorage.getItem('totalPoints')) || 0;
+let totalPoints = parseInt(safeStorage.getItem('totalPoints')) || 0;
 const WALLS = [
     // Outer boundary walls
     { x: 0, y: 0, w: 1000, h: 20 },
@@ -1186,7 +1207,7 @@ function update(deltaTime) {
                     playSound(800, 'sine', 0.2, 0.1, false);
                 } else {
                     totalPoints += 5;
-                    localStorage.setItem('totalPoints', totalPoints);
+                    safeStorage.setItem('totalPoints', totalPoints);
                     playSound(1000, 'sine', 0.2, 0.1, false);
                 }
                 updateHUD();
@@ -1318,7 +1339,7 @@ function victory(winningTeamId) {
     // Award points if player team wins
     if (winningTeamId === player.teamId) {
         totalPoints += 3;
-        localStorage.setItem('totalPoints', totalPoints);
+        safeStorage.setItem('totalPoints', totalPoints);
     }
 
     menuOverlay.classList.remove('hidden');
@@ -1704,13 +1725,17 @@ function loop(time) {
     requestAnimationFrame(loop);
 }
 
-window.addEventListener('resize', () => {
+function resize() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-});
+    // On some mobile devices, innerWidth/Height might be 0 initially
+    if (canvas.width === 0 || canvas.height === 0) {
+        setTimeout(resize, 100);
+    }
+}
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+window.addEventListener('resize', resize);
+resize();
 
 // Note: selectedMap is already declared at the top as 'NORMAL'
 
@@ -1785,7 +1810,7 @@ function startGame() {
     // Decrement Gold Trial if used
     if (goldTrial > 0 && !player.hasGoldPackage) {
         goldTrial--;
-        localStorage.setItem('goldTrial', goldTrial);
+        safeStorage.setItem('goldTrial', goldTrial);
     }
 
     updateHUD();
@@ -2009,8 +2034,10 @@ updateHUD();
 // ===================== NAME SCREEN & DEVICE SELECTION =====================
 function selectDevice(mode) {
     deviceMode = mode;
-    document.getElementById('btn-pc').classList.toggle('active', mode === 'PC');
-    document.getElementById('btn-mobile').classList.toggle('active', mode === 'MOBILE');
+    const btnPc = document.getElementById('btn-pc');
+    const btnMob = document.getElementById('btn-mobile');
+    if (btnPc) btnPc.classList.toggle('active', mode === 'PC');
+    if (btnMob) btnMob.classList.toggle('active', mode === 'MOBILE');
 }
 
 function openDeviceMenu() {
@@ -2023,7 +2050,7 @@ function openDeviceMenu() {
 function confirmName() {
     const input = document.getElementById('name-input');
     playerName = input.value.trim() || 'Lord_' + Math.floor(Math.random() * 999);
-    localStorage.setItem('playerName', playerName);
+    safeStorage.setItem('playerName', playerName);
 
     document.getElementById('name-screen').classList.add('hidden');
 
@@ -2055,7 +2082,7 @@ function confirmName() {
 
 // Pre-fill stored name if available
 (function initNameScreen() {
-    const stored = localStorage.getItem('playerName');
+    const stored = safeStorage.getItem('playerName');
     const inputEl = document.getElementById('name-input');
     if (stored && inputEl) inputEl.value = stored;
 
@@ -2277,7 +2304,7 @@ function confirmName() {
 // ===================== STORE & INVENTORY LOGIC =====================
 let inventory = [{ id: 'DEFAULT', name: 'Standart Silah' }];
 try {
-    const savedInventory = localStorage.getItem('weaponInventory');
+    const savedInventory = safeStorage.getItem('weaponInventory');
     if (savedInventory) {
         inventory = JSON.parse(savedInventory);
     }
@@ -2285,7 +2312,7 @@ try {
     console.error("Inventory error:", e);
 }
 
-let activeWeaponId = localStorage.getItem('activeWeaponId') || 'DEFAULT';
+let activeWeaponId = safeStorage.getItem('activeWeaponId') || 'DEFAULT';
 
 const STORE_THEMES = {
     bronze: ['Orman', 'Kar', 'Gece'],
@@ -2334,7 +2361,7 @@ function openBox(type) {
     }
 
     totalPoints -= cost;
-    localStorage.setItem('totalPoints', totalPoints);
+    safeStorage.setItem('totalPoints', totalPoints);
     const tlSpan = document.getElementById('current-tl');
     if (tlSpan) tlSpan.innerText = totalPoints;
     updateHUD();
@@ -2360,7 +2387,7 @@ function openBox(type) {
         };
 
         inventory.push(newWeapon);
-        localStorage.setItem('weaponInventory', JSON.stringify(inventory));
+        safeStorage.setItem('weaponInventory', JSON.stringify(inventory));
 
         if (rewardText) rewardText.innerHTML = `TEBRİKLER!<br><span style="color: #ffd700">${weaponName}</span> Kazandın!`;
         playSound(800, 'square', 0.5, 0.2, false);
@@ -2413,7 +2440,7 @@ function updateCollectionUI() {
 
 function selectInventoryWeapon(id) {
     activeWeaponId = id;
-    localStorage.setItem('activeWeaponId', id);
+    safeStorage.setItem('activeWeaponId', id);
 
     // If it's a god skin, we need to ensure it's "known" for applyActiveWeapon
     // For now, we'll just let applyActiveWeapon handle the id prefix
@@ -2461,7 +2488,7 @@ function masterInit() {
     try {
         initStore();
 
-        const savedName = localStorage.getItem('playerName');
+        const savedName = safeStorage.getItem('playerName');
         const nameScreen = document.getElementById('name-screen');
         const menuOverlayEl = document.getElementById('menu-overlay');
 
@@ -2482,12 +2509,15 @@ function masterInit() {
             if (nameScreen) nameScreen.classList.remove('hidden');
             if (menuOverlayEl) menuOverlayEl.classList.add('hidden');
         }
+        // Sync UI with auto-detected device mode
+        selectDevice(deviceMode);
         updateHUD();
     } catch (e) {
         console.error("Master Init Failure:", e);
-        // Emergency fallback: show name screen
+        // Emergency fallback: show name screen and alert
         const ns = document.getElementById('name-screen');
         if (ns) ns.classList.remove('hidden');
+        alert("Oyun başlatılırken bir hata oluştu. Lütfen sayfayı yenileyiniz. Hata: " + e.message);
     }
 }
 

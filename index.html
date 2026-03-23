@@ -132,152 +132,154 @@
             <button id="emperor-btn" class="premium-btn">İMPARATOR OLMAK İSTER MİSİN? <span
                     class="vip-text">VIP</span></button>
 
-            <div id="emperor-modal" class="modal hidden">
-                <div class="modal-content glass">
-                    <button id="close-modal" class="modal-close-btn">&times;</button>
-                    <h2>İMPARATOR PAKETLERİ</h2>
-                    <div class="packages-grid">
-                        <div class="package-card">
-                            <h3>Bronz Paket</h3>
-                            <p>Temel Zırh + 500 Altın</p>
-                            <span class="price">13.35 TL</span>
-                            <button class="buy-btn">SATIN AL</button>
-                        </div>
-                        <div class="package-card featured">
-                            <h3>Altın Paket</h3>
-                            <p>Full Set + 2000 Altın + Kanat + <b>Ölümcül Bıçak (Sağ Tık)</b></p>
-                            <span class="price">49.99 TL</span>
-                            <button class="buy-btn" data-package="gold">SATIN AL</button>
-                        </div>
-                        <div class="package-card glass">
-                            <h3>Kral Paketi</h3>
-                            <p>Sınırsız Can + Ejderha + <b>El Bombası (G Tuşu)</b></p>
-                            <span class="price">99.99 TL</span>
-                            <button class="buy-btn" data-package="king">SATIN AL</button>
-                        </div>
-                        <div class="package-card lord glass">
-                            <div class="package-badge">VIP</div>
-                            <h3>LORD PAKETİ</h3>
-                            <p>+ AK-47 Modeli + Roketatar (Slot 4 - %50 Hızlı) + Ölümcül Bıçak &amp; Bomba + %50 Hasar
-                                Direnci + %50 Hasar Artışı</p>
-                            <span class="price">500.00 TL</span>
-                            <button class="buy-btn" data-package="lord">SATIN AL</button>
-                        </div>
-                        <div class="package-card vip glass">
-                            <div class="package-badge" style="background: #bf00ff;">ELITE</div>
-                            <h3>VIP PAKETİ</h3>
-                            <p>+ Özel VIP Harita Erişimi + Gold &amp; Kral Paketlerinde %25 İndirim + Mor Neon Efektler
-                            </p>
-                            <span class="price">750.00 TL</span>
-                            <button class="buy-btn" data-package="vip">SATIN AL</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ===== STORE MODAL ===== -->
-            <div id="store-modal" class="modal hidden">
-                <div class="modal-content glass store-content">
-                    <button id="close-store" class="modal-close-btn">&times;</button>
-                    <h2 class="store-title">KUTU MAĞAZASI</h2>
-                    <div class="store-info-row">
-                        <div id="store-points" class="glass">Mevcut TL: <span id="current-tl">0</span></div>
-                        <div id="store-rank" class="glass">Rütbe: <span id="store-rank-display">ACEMİ</span></div>
-                    </div>
-                    <div class="packages-grid">
-                        <div class="package-card box-card bronze">
-                            <div class="box-visual">📦</div>
-                            <h3>Bronz Kutu</h3>
-                            <p>Sıradan Silah Skinleri (Orman, Kar, Gece)</p>
-                            <span class="price">5 TL</span>
-                            <button class="buy-box-btn" data-box="bronze">SATIN AL</button>
-                        </div>
-                        <div class="package-card box-card silver featured">
-                            <div class="box-visual">🎁</div>
-                            <h3>Gümüş Kutu</h3>
-                            <p>Nadir Silah Skinleri (Çöl, Dijital, Kamuflaj)</p>
-                            <span class="price">10 TL</span>
-                            <button class="buy-box-btn" data-box="silver">SATIN AL</button>
-                        </div>
-                        <div class="package-card box-card gold">
-                            <div class="box-visual">💎</div>
-                            <h3>Altın Kutu</h3>
-                            <p>Efsanevi Silah Skinleri (Altın, İmparator, Ejder)</p>
-                            <span class="price">20 TL</span>
-                            <button class="buy-box-btn" data-box="gold">SATIN AL</button>
-                        </div>
-                    </div>
-                    <div id="open-animation-overlay" class="hidden">
-                        <div class="opening-box">🎁</div>
-                        <h3 id="reward-name">Kutu Açılıyor...</h3>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ===== DEATH SCREEN MODAL (CS:GO STYLE) ===== -->
-            <div id="death-screen" class="death-overlay hidden">
-                <div class="death-notice glass">
-                    <div class="death-main">
-                        <div class="killer-avatar">
-                            <img src="https://img.vavel.com/b-1558032734191.jpg" alt="Killer" id="killer-img">
-                        </div>
-                        <div class="killer-text">
-                            <h2 id="killer-name">BOT Maru</h2>
-                            <p id="death-cause">seni <span id="killer-weapon-name">AWP</span> ile öldürdü</p>
-                        </div>
-                        <div class="killer-weapon">
-                            <img src="https://www.csgotemp.com/img/weapons/awp.png" alt="Weapon" id="killer-weapon-img">
-                        </div>
-                    </div>
-                    <div class="death-stats-grid">
-                        <div class="stat-box taken">
-                            <span class="stat-label">Alınan hasar:</span>
-                            <span class="stat-value"><b id="stats-taken-hits">1</b> vuruşta <b
-                                    id="stats-taken-dmg">139</b></span>
-                            <div class="stat-bar-bg">
-                                <div id="bar-taken" class="stat-bar"></div>
-                            </div>
-                        </div>
-                        <div class="stat-box dealt">
-                            <span class="stat-label">Verilen hasar:</span>
-                            <span class="stat-value"><b id="stats-dealt-hits">1</b> vuruşta <b
-                                    id="stats-dealt-dmg">13</b></span>
-                            <div class="stat-bar-bg">
-                                <div id="bar-dealt" class="stat-bar"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="respawn-line">
-                        Yeniden canlanıyorsun... <span id="respawn-timer-ui">10</span>s
-                    </div>
-                </div>
-            </div>
-
             <div class="controls-hint" id="controls-hint">
                 <p>WASD: Hareket | Mouse: Nişan | Sol Tık: Ateş</p>
             </div>
         </div>
 
-        <!-- ===== MOBILE CONTROLS ===== -->
-        <div id="mobile-controls" class="hidden">
-            <!-- Left Joystick -->
-            <div id="joystick-zone">
-                <div id="joystick-base">
-                    <div id="joystick-knob"></div>
+        <!-- ===== MODALS (Outside Menu Overlay) ===== -->
+        <div id="emperor-modal" class="modal hidden">
+            <div class="modal-content glass">
+                <button id="close-modal" class="modal-close-btn">&times;</button>
+                <h2>İMPARATOR PAKETLERİ</h2>
+                <div class="packages-grid">
+                    <div class="package-card">
+                        <h3>Bronz Paket</h3>
+                        <p>Temel Zırh + 500 Altın</p>
+                        <span class="price">13.35 TL</span>
+                        <button class="buy-btn">SATIN AL</button>
+                    </div>
+                    <div class="package-card featured">
+                        <h3>Altın Paket</h3>
+                        <p>Full Set + 2000 Altın + Kanat + <b>Ölümcül Bıçak (Sağ Tık)</b></p>
+                        <span class="price">49.99 TL</span>
+                        <button class="buy-btn" data-package="gold">SATIN AL</button>
+                    </div>
+                    <div class="package-card glass">
+                        <h3>Kral Paketi</h3>
+                        <p>Sınırsız Can + Ejderha + <b>El Bombası (G Tuşu)</b></p>
+                        <span class="price">99.99 TL</span>
+                        <button class="buy-btn" data-package="king">SATIN AL</button>
+                    </div>
+                    <div class="package-card lord glass">
+                        <div class="package-badge">VIP</div>
+                        <h3>LORD PAKETİ</h3>
+                        <p>+ AK-47 Modeli + Roketatar (Slot 4 - %50 Hızlı) + Ölümcül Bıçak &amp; Bomba + %50 Hasar
+                            Direnci + %50 Hasar Artışı</p>
+                        <span class="price">500.00 TL</span>
+                        <button class="buy-btn" data-package="lord">SATIN AL</button>
+                    </div>
+                    <div class="package-card vip glass">
+                        <div class="package-badge" style="background: #bf00ff;">ELITE</div>
+                        <h3>VIP PAKETİ</h3>
+                        <p>+ Özel VIP Harita Erişimi + Gold &amp; Kral Paketlerinde %25 İndirim + Mor Neon Efektler
+                        </p>
+                        <span class="price">750.00 TL</span>
+                        <button class="buy-btn" data-package="vip">SATIN AL</button>
+                    </div>
                 </div>
-            </div>
-            <!-- Right action buttons -->
-            <div id="mobile-action-btns">
-                <button id="mob-fire-btn" class="mob-btn fire">🔫</button>
-                <button id="mob-knife-btn" class="mob-btn knife">🔪</button>
-                <button id="mob-bomb-btn" class="mob-btn bomb">💣</button>
-                <button id="mob-rocket-btn" class="mob-btn rocket">🚀</button>
             </div>
         </div>
 
-        <footer>
-            <p>Savaşçı Bilgisi: <span class="signature">Önal</span></p>
-        </footer>
+        <!-- ===== STORE MODAL ===== -->
+        <div id="store-modal" class="modal hidden">
+            <div class="modal-content glass store-content">
+                <button id="close-store" class="modal-close-btn">&times;</button>
+                <h2 class="store-title">KUTU MAĞAZASI</h2>
+                <div class="store-info-row">
+                    <div id="store-points" class="glass">Mevcut TL: <span id="current-tl">0</span></div>
+                    <div id="store-rank" class="glass">Rütbe: <span id="store-rank-display">ACEMİ</span></div>
+                </div>
+                <div class="packages-grid">
+                    <div class="package-card box-card bronze">
+                        <div class="box-visual">📦</div>
+                        <h3>Bronz Kutu</h3>
+                        <p>Sıradan Silah Skinleri (Orman, Kar, Gece)</p>
+                        <span class="price">5 TL</span>
+                        <button class="buy-box-btn" data-box="bronze">SATIN AL</button>
+                    </div>
+                    <div class="package-card box-card silver featured">
+                        <div class="box-visual">🎁</div>
+                        <h3>Gümüş Kutu</h3>
+                        <p>Nadir Silah Skinleri (Çöl, Dijital, Kamuflaj)</p>
+                        <span class="price">10 TL</span>
+                        <button class="buy-box-btn" data-box="silver">SATIN AL</button>
+                    </div>
+                    <div class="package-card box-card gold">
+                        <div class="box-visual">💎</div>
+                        <h3>Altın Kutu</h3>
+                        <p>Efsanevi Silah Skinleri (Altın, İmparator, Ejder)</p>
+                        <span class="price">20 TL</span>
+                        <button class="buy-box-btn" data-box="gold">SATIN AL</button>
+                    </div>
+                </div>
+                <div id="open-animation-overlay" class="hidden">
+                    <div class="opening-box">🎁</div>
+                    <h3 id="reward-name">Kutu Açılıyor...</h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== DEATH SCREEN MODAL (CS:GO STYLE) ===== -->
+        <div id="death-screen" class="death-overlay hidden">
+            <div class="death-notice glass">
+                <div class="death-main">
+                    <div class="killer-avatar">
+                        <img src="https://img.vavel.com/b-1558032734191.jpg" alt="Killer" id="killer-img">
+                    </div>
+                    <div class="killer-text">
+                        <h2 id="killer-name">BOT Maru</h2>
+                        <p id="death-cause">seni <span id="killer-weapon-name">AWP</span> ile öldürdü</p>
+                    </div>
+                    <div class="killer-weapon">
+                        <img src="https://www.csgotemp.com/img/weapons/awp.png" alt="Weapon" id="killer-weapon-img">
+                    </div>
+                </div>
+                <div class="death-stats-grid">
+                    <div class="stat-box taken">
+                        <span class="stat-label">Alınan hasar:</span>
+                        <span class="stat-value"><b id="stats-taken-hits">1</b> vuruşta <b
+                                id="stats-taken-dmg">139</b></span>
+                        <div class="stat-bar-bg">
+                            <div id="bar-taken" class="stat-bar"></div>
+                        </div>
+                    </div>
+                    <div class="stat-box dealt">
+                        <span class="stat-label">Verilen hasar:</span>
+                        <span class="stat-value"><b id="stats-dealt-hits">1</b> vuruşta <b
+                                id="stats-dealt-dmg">13</b></span>
+                        <div class="stat-bar-bg">
+                            <div id="bar-dealt" class="stat-bar"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="respawn-line">
+                    Yeniden canlanıyorsun... <span id="respawn-timer-ui">10</span>s
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MOBILE CONTROLS ===== -->
+    <div id="mobile-controls" class="hidden">
+        <!-- Left Joystick -->
+        <div id="joystick-zone">
+            <div id="joystick-base">
+                <div id="joystick-knob"></div>
+            </div>
+        </div>
+        <!-- Right action buttons -->
+        <div id="mobile-action-btns">
+            <button id="mob-fire-btn" class="mob-btn fire">🔫</button>
+            <button id="mob-knife-btn" class="mob-btn knife">🔪</button>
+            <button id="mob-bomb-btn" class="mob-btn bomb">💣</button>
+            <button id="mob-rocket-btn" class="mob-btn rocket">🚀</button>
+        </div>
+    </div>
+
+    <footer>
+        <p>Savaşçı Bilgisi: <span class="signature">Önal</span></p>
+    </footer>
     </div>
 </body>
 

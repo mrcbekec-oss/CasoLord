@@ -40,11 +40,13 @@ canvas {
     top: 0;
     left: 0;
     touch-action: none;
+    z-index: 0;
 }
 
 .glass {
     background: var(--glass-bg);
     backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9);
 }
@@ -969,6 +971,30 @@ footer {
     #team-status {
         top: 80px;
         left: 10px;
+    }
+
+    .full-screen-overlay {
+        padding: 20px 10px;
+        gap: 12px;
+    }
+
+    .device-btn {
+        min-width: 140px;
+        padding: 12px 20px;
+        font-size: 0.9rem;
+    }
+
+    .premium-btn {
+        padding: 12px 30px;
+        font-size: 0.9rem;
+    }
+
+    .modal-content {
+        padding: 20px;
+    }
+
+    .death-notice {
+        width: 95%;
     }
 }
 
