@@ -1002,7 +1002,7 @@ for (let i = 0; i < NUM_BOTS; i++) {
     entities.push(new Bot(teamId, `bot_${i}`));
 }
 
-function update(deltaTime) {
+function update(deltaTime, time) {
     if (!gameRunning) return;
 
     // Safety check for player position
@@ -1757,7 +1757,7 @@ function loop(time) {
     lastTime = time;
 
     try {
-        update(deltaTime);
+        update(deltaTime, time);
         draw();
 
         // Final Screen-Space Draw (Bypassing all transforms)
