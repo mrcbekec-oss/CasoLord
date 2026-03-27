@@ -36,12 +36,8 @@ body {
     position: fixed;
     top: 0;
     left: 0;
-    right: 0;
-    bottom: 0;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
+    width: 100vw;
+    height: 100vh;
     overflow: hidden;
     touch-action: none;
     /* Disable pull-to-refresh etc. */
@@ -49,13 +45,18 @@ body {
 
 canvas {
     display: block;
-    width: 100%;
-    height: 100%;
+    width: 100vw;
+    height: 100vh;
+    min-width: 100%;
+    min-height: 100%;
     position: absolute;
     top: 0;
     left: 0;
     touch-action: none;
-    z-index: 0;
+    z-index: 1;
+    /* Bring canvas to a known stack level */
+    background: #000;
+    /* Fallback background directly on canvas */
 }
 
 .glass {

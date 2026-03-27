@@ -1383,11 +1383,32 @@ function victory(winningTeamId) {
 
 function draw() {
     if (!ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw solid dark background on canvas to ensure it's not transparent
-    ctx.fillStyle = '#111';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Force internal buffer consistency with DOM size
+    if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+
+    const cw = canvas.width;
+    const ch = canvas.height;
+
+    if (cw === 0 || ch === 0) return; // Cannot draw on 0-size canvas
+
+    // Reset Context State
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1.0;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.imageSmoothingEnabled = false;
+
+    // Clear and background
+    ctx.clearRect(0, 0, cw, ch);
+    ctx.fillStyle = '#0a0a0c'; // Matched with body bg
+    ctx.fillRect(0, 0, cw, ch);
+
+    // Draw subtle dark world background
+    ctx.fillStyle = '#16161a';
+    ctx.fillRect(0, 0, cw, ch);
 
     const isMobile = deviceMode === 'MOBILE';
     const zoom = isMobile ? 1.3 : 1.0;
@@ -1395,8 +1416,6 @@ function draw() {
     // Safety: ensure coordinates are valid before calculating offsets
     const px = isNaN(player.x) ? WORLD_WIDTH / 2 : player.x;
     const py = isNaN(player.y) ? WORLD_HEIGHT / 2 : player.y;
-    const cw = canvas.width || window.innerWidth;
-    const ch = canvas.height || window.innerHeight;
 
     const offsetX = px - (cw / (2 * zoom)) + (Math.random() - 0.5) * screenShake;
     const offsetY = py - (ch / (2 * zoom)) + (Math.random() - 0.5) * screenShake;
@@ -1741,9 +1760,17 @@ function loop(time) {
         update(deltaTime);
         draw();
 
-        // Heartbeat indicator (top left)
+        // Final Screen-Space Draw (Bypassing all transforms)
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+        // Heartbeat indicator (Screen coordinate 10, 10)
         ctx.fillStyle = (Math.floor(time / 500) % 2 === 0) ? '#00ff00' : '#ffff00';
-        ctx.fillRect(5, 5, 5, 5);
+        ctx.fillRect(10, 10, 8, 8);
+
+        // Debug Text
+        ctx.fillStyle = '#fff';
+        ctx.font = '10px Arial';
+        ctx.fillText(`C: ${canvas.width}x${canvas.height} | P: ${Math.floor(player.x)},${Math.floor(player.y)}`, 25, 18);
 
         debugError = "";
     } catch (e) {
