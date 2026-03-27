@@ -103,8 +103,12 @@ let screenShake = 0;
 let audioCtx = null;
 
 function initAudio() {
-    if (audioCtx) return;
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    try {
+        if (audioCtx) return;
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (e) {
+        console.warn("Audio Context could not be initialized:", e);
+    }
 }
 
 function playSound(freq, type = 'square', duration = 0.1, volume = 0.1, slide = true) {
@@ -1001,6 +1005,13 @@ for (let i = 0; i < NUM_BOTS; i++) {
 function update(deltaTime) {
     if (!gameRunning) return;
 
+    // Safety check for player position
+    if (isNaN(player.x) || isNaN(player.y)) {
+        console.error("Player coordinates are NaN! Resetting to center.");
+        player.x = WORLD_WIDTH / 2;
+        player.y = WORLD_HEIGHT / 2;
+    }
+
     // Knife Animation update
     if (player.swingProgress > 0) {
         player.swingProgress += 0.15;
@@ -1371,21 +1382,34 @@ function victory(winningTeamId) {
 }
 
 function draw() {
+    if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw solid dark background on canvas to ensure it's not transparent
+    ctx.fillStyle = '#111';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     const isMobile = deviceMode === 'MOBILE';
     const zoom = isMobile ? 1.3 : 1.0;
 
-    ctx.save();
-    // Centered scaling
-    if (isMobile) {
-        ctx.translate(canvas.width / 2, canvas.height / 2);
-        ctx.scale(zoom, zoom);
-        ctx.translate(-canvas.width / 2, -canvas.height / 2);
-    }
+    // Safety: ensure coordinates are valid before calculating offsets
+    const px = isNaN(player.x) ? WORLD_WIDTH / 2 : player.x;
+    const py = isNaN(player.y) ? WORLD_HEIGHT / 2 : player.y;
+    const cw = canvas.width || window.innerWidth;
+    const ch = canvas.height || window.innerHeight;
 
-    const offsetX = player.x - (canvas.width / (2 * zoom)) + (Math.random() - 0.5) * screenShake;
-    const offsetY = player.y - (canvas.height / (2 * zoom)) + (Math.random() - 0.5) * screenShake;
+    const offsetX = px - (cw / (2 * zoom)) + (Math.random() - 0.5) * screenShake;
+    const offsetY = py - (ch / (2 * zoom)) + (Math.random() - 0.5) * screenShake;
+
+    ctx.save();
+    // Centered scaling for mobile
+    if (isMobile) {
+        const cx = cw / 2;
+        const cy = ch / 2;
+        ctx.translate(cx, cy);
+        ctx.scale(zoom, zoom);
+        ctx.translate(-cx, -cy);
+    }
 
     const isVipMap = selectedMap === 'VIP';
 
@@ -1701,32 +1725,46 @@ function gameOver() {
 
 let debugError = "";
 
+let lastLogTime = 0;
+let loopCount = 0;
+
 function loop(time) {
+    if (!time) time = performance.now();
+    if (loopCount === 0) console.log("First Loop Frame at:", time);
+    loopCount++;
+
     if (lastTime === 0) lastTime = time;
-    // Cap deltaTime to 100ms to prevent freeze/spiral when tab is backgrounded
     const deltaTime = Math.min(time - lastTime, 100);
     lastTime = time;
 
     try {
         update(deltaTime);
         draw();
+
+        // Heartbeat indicator (top left)
+        ctx.fillStyle = (Math.floor(time / 500) % 2 === 0) ? '#00ff00' : '#ffff00';
+        ctx.fillRect(5, 5, 5, 5);
+
+        debugError = "";
     } catch (e) {
         debugError = e.stack || e.message;
-        console.error(e);
+        console.error("Frame Crash:", e);
     }
 
     if (debugError) {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = 'red';
-        ctx.font = '16px monospace';
+        ctx.fillStyle = '#ff0000';
+        ctx.font = '14px monospace';
         ctx.textAlign = 'left';
-        ctx.fillText("CRASH LOG:", 20, 40);
-        ctx.fillStyle = 'white';
-        const lines = debugError.split('\n');
+        ctx.fillText("CRITICAL ERROR (GAME STOPPED):", 20, 40);
+        ctx.fillStyle = '#ffffff';
+        const lines = debugError.split('\n').slice(0, 20);
         for (let i = 0; i < lines.length; i++) {
-            ctx.fillText(lines[i], 20, 70 + i * 25);
+            ctx.fillText(lines[i], 20, 70 + i * 20);
         }
+        // Don't recurse if there's a fatal persistent error to save CPU
+        // return; 
     }
 
     requestAnimationFrame(loop);
@@ -1735,13 +1773,19 @@ function loop(time) {
 function resize() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    // On some mobile devices, innerWidth/Height might be 0 initially
+
+    // Safety check for mobile browsers that report 0 height during transitions
     if (canvas.width === 0 || canvas.height === 0) {
         setTimeout(resize, 100);
+        return;
     }
+
+    // Ensure the scroll is at top to fix "pushed up" layout on mobile
+    window.scrollTo(0, 0);
 }
 
 window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => setTimeout(resize, 200));
 resize();
 
 // Note: selectedMap is already declared at the top as 'NORMAL'
@@ -1778,64 +1822,79 @@ document.querySelectorAll('.map-btn').forEach(btn => {
 });
 
 function startGame() {
-    if (gameRunning) return; // Prevent multiple loops
-    gameRunning = true;
-    // Security check: Force Normal Map if not eligible
-    if (!(player.hasLordPackage || player.hasVIPPackage)) {
-        selectedMap = 'NORMAL';
-    }
-
-    menuOverlay.classList.add('hidden');
-
-    // Show HUD
-    const hudOverlay = document.getElementById('hud-overlay');
-    if (hudOverlay) hudOverlay.classList.remove('hidden');
-
-    // Show mobile controls only on mobile
-    const mobileCtrls = document.getElementById('mobile-controls');
-    if (mobileCtrls) {
-        if (deviceMode === 'MOBILE') {
-            mobileCtrls.classList.remove('hidden');
-        } else {
-            mobileCtrls.classList.add('hidden');
+    try {
+        if (gameRunning) {
+            console.warn("startGame called while already running - ignoring.");
+            return;
         }
-    }
+        console.log("--- startGame Sequence Initialized ---");
 
-    // Update controls hint text
-    const hint = document.getElementById('controls-hint');
-    if (hint) {
-        hint.innerHTML = deviceMode === 'MOBILE'
-            ? '<p>Sol Joystick: Hareket | Sağ Butonlar: Ateş/Bıçak/Bomba/Roket</p>'
-            : '<p>WASD: Hareket | Mouse: Nişan | Sol Tık: Ateş</p>';
-    }
+        gameRunning = true;
+        selectedMap = (player.hasLordPackage || player.hasVIPPackage) ? selectedMap : 'NORMAL';
+        console.log("Selected Map:", selectedMap);
 
-    gameRunning = true;
-    initAudio();
-    player.shieldTimer = 3000; // Initial shield
-    lastTime = 0;
+        if (menuOverlay) menuOverlay.classList.add('hidden');
 
-    // Decrement Gold Trial if used
-    if (goldTrial > 0 && !player.hasGoldPackage) {
-        goldTrial--;
-        safeStorage.setItem('goldTrial', goldTrial);
-    }
+        // Show HUD
+        const hudOverlay = document.getElementById('hud-overlay');
+        if (hudOverlay) {
+            hudOverlay.classList.remove('hidden');
+            console.log("HUD Shown.");
+        }
 
-    updateHUD();
-
-    // Initial Team Scrub: Eliminate teams that have NO bots assigned from the start
-    setTimeout(() => {
-        for (let i = 0; i < TEAMS.length; i++) {
-            const teamBots = entities.filter(b => b.teamId === i);
-            const isPlayerInTeam = player.teamId === i;
-            if (teamBots.length === 0 && !isPlayerInTeam) {
-                TEAMS[i].isEliminated = true;
-                console.log(`Team ${i} (${TEAMS[i].name}) eliminated (Empty team).`);
+        // Show mobile controls only on mobile
+        const mobileCtrls = document.getElementById('mobile-controls');
+        if (mobileCtrls) {
+            if (deviceMode === 'MOBILE') {
+                mobileCtrls.classList.remove('hidden');
+                console.log("Mobile Controls Shown.");
+            } else {
+                mobileCtrls.classList.add('hidden');
             }
         }
-        checkVictory();
-    }, 500);
 
-    requestAnimationFrame(loop);
+        // Update controls hint text
+        const hint = document.getElementById('controls-hint');
+        if (hint) {
+            hint.innerHTML = deviceMode === 'MOBILE'
+                ? '<p>Sol Joystick: Hareket | Sağ Butonlar: Ateş/Bıçak/Bomba/Roket</p>'
+                : '<p>WASD: Hareket | Mouse: Nişan | Sol Tık: Ateş</p>';
+        }
+
+        initAudio();
+        player.shieldTimer = 3000;
+        lastTime = 0;
+        loopCount = 0; // Reset loop log counter
+
+        updateHUD();
+        resize();
+        window.scrollTo(0, 0);
+
+        // Initial Team Scrub
+        setTimeout(() => {
+            try {
+                console.log("Performing initial team scrub...");
+                for (let i = 0; i < TEAMS.length; i++) {
+                    const teamBots = entities.filter(b => b.teamId === i);
+                    const isPlayerInTeam = player.teamId === i;
+                    if (teamBots.length === 0 && !isPlayerInTeam) {
+                        TEAMS[i].isEliminated = true;
+                    }
+                }
+                checkVictory();
+            } catch (e) {
+                console.error("Delayed Team Scrub Error:", e);
+            }
+        }, 500);
+
+        console.log("Requesting first animation frame...");
+        requestAnimationFrame(loop);
+    } catch (e) {
+        console.error("FATAL START ERROR:", e);
+        alert("Oyun başlatılamadı! Lütfen konsoldaki hatayı kontrol edin.");
+        if (menuOverlay) menuOverlay.classList.remove('hidden');
+        gameRunning = false;
+    }
 }
 
 const emperorBtn = document.getElementById('emperor-btn');
@@ -2085,6 +2144,7 @@ function confirmName() {
         }
     }
     updateHUD();
+    resize(); // Force resize sync after UI changes
 }
 
 // Pre-fill stored name if available
@@ -2457,10 +2517,14 @@ function selectInventoryWeapon(id) {
 
 function applyActiveWeapon() {
     try {
+        if (!inventory || inventory.length === 0) {
+            inventory = [{ id: 'DEFAULT', name: 'Standart Silah' }];
+        }
+
         let weaponData = inventory.find(w => w.id === activeWeaponId);
 
         // Handle God Skins (virtual skins for moderators)
-        if (!weaponData && activeWeaponId.startsWith('god_')) {
+        if (!weaponData && activeWeaponId && activeWeaponId.startsWith('god_')) {
             const parts = activeWeaponId.split('_');
             weaponData = {
                 id: activeWeaponId,
@@ -2470,16 +2534,18 @@ function applyActiveWeapon() {
             };
         }
 
-        if (!weaponData) weaponData = inventory[0];
+        if (!weaponData) {
+            weaponData = inventory[0] || { id: 'DEFAULT', name: 'Standart Silah', baseType: 'DEFAULT' };
+        }
 
         let protoKey = 'DEFAULT';
         if (weaponData.baseType === 'SNIPER') protoKey = 'SNIPER';
         else if (weaponData.baseType === 'MAKINELI') protoKey = 'MACHINE_GUN';
         else if (weaponData.baseType === 'AK-47') protoKey = 'AK47';
 
-        const prototype = WEAPONS[protoKey];
+        const prototype = WEAPONS[protoKey] || WEAPONS.DEFAULT;
         if (prototype) {
-            player.weapon = { ...prototype, name: weaponData.name };
+            player.weapon = { ...prototype, name: weaponData.name || "Bilinmeyen Silah" };
             if (weaponData.theme === 'Altın') player.weapon.damage += 5;
             if (weaponData.theme === 'İmparator') player.weapon.fireRate *= 0.9;
             player.speed = player.weapon.playerSpeed;
@@ -2487,6 +2553,10 @@ function applyActiveWeapon() {
         }
     } catch (e) {
         console.error("Weapon apply crash:", e);
+        // Emergency default
+        player.weapon = WEAPONS.DEFAULT;
+        player.speed = player.weapon.playerSpeed;
+        selectedClass = 'DEFAULT';
     }
 }
 
